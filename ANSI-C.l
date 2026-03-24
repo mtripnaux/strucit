@@ -1,91 +1,78 @@
 D                       [0-9]
 L                       [a-zA-Z_]
-H                       [a-fA-F0-9]
-E                       [Ee][+-]?{D}+
-FS                      (f|F|l|L)
-IS                      (u|U|l|L)*
-
-%{
+% {
 #include <stdio.h>
 #include "y.tab.h"
 
+/* Fonction pour compter les lignes (utile pour les erreurs) */
+int line_count = 1;
 
-/* Ne gère pas les commentaires. A rajouter */
-/* Supprimer les lignes dont vous n'avez pas besoin. */
-
-%}
+void count();
+% }
 
 %%
-"auto"                  { /* A completer */ }
-"break"                 { /* A completer */ }
-"case"                  { /* A completer */ }
-"char"                  { /* A completer */ }
-"const"                 { /* A completer */ }
-"continue"              { /* A completer */ }
-"default"               { /* A completer */ }
-"do"                    { /* A completer */ }
-"double"                { /* A completer */ }
-"else"                  { /* A completer */ }
-"enum"                  { /* A completer */ }
-"extern"                { /* A completer */ }
-"float"                 { /* A completer */ }
-"for"                   { /* A completer */ }
-"goto"                  { /* A completer */ }
-"if"                    { /* A completer */ }
-"int"                   { /* A completer */ }
-"long"                  { /* A completer */ }
-"register"              { /* A completer */ }
-"return"                { /* A completer */ }
-"short"                 { /* A completer */ }
-"signed"                { /* A completer */ }
-"sizeof"                { /* A completer */ }
-"static"                { /* A completer */ }
-"struct"                { /* A completer */ }
-"switch"                { /* A completer */ }
-"typedef"               { /* A completer */ }
-"union"                 { /* A completer */ }
-"unsigned"              { /* A completer */ }
-"void"                  { /* A completer */ }
-"volatile"              { /* A completer */ }
-"while"                 { /* A completer */ }
+"/*"                    { comment(); } // Gestion des commentaires
+"//"[^\n]* { /* Commentaire sur une seule ligne */ }
 
-{L}({L}|{D})*           { /* A completer */ }
+"else"                  { count(); return(ELSE); }
+"extern"                { count(); return(EXTERN); }
+"for"                   { count(); return(FOR); }
+"goto"                  { count(); return(GOTO); }
+"if"                    { count(); return(IF); }
+"int"                   { count(); return(INT); }
+"return"                { count(); return(RETURN); }
+"sizeof"                { count(); return(SIZEOF); }
+"struct"                { count(); return(STRUCT); }
+"void"                  { count(); return(VOID); }
+"while"                 { count(); return(WHILE); }
 
-0[xX]{H}+{IS}?          { /* A completer */ }
-0{D}+{IS}?              { /* A completer */ }
-{D}+{IS}?               { /* A completer */ }
-L?'(\\.|[^\\'])+'       { /* A completer */ }
+{L}({L}|{D})* { count(); yylval.sval = strdup(yytext); return(IDENTIFIER); }
+{D}+                    { count(); yylval.ival = atoi(yytext); return(CONSTANT); }
 
-{D}+{E}{FS}?            { /* A completer */ }
-{D}*"."{D}+({E})?{FS}?  { /* A completer */ }
-{D}+"."{D}*({E})?{FS}?  { /* A completer */ }
+"->"                    { count(); return(PTR_OP); }
+"&&"                    { count(); return(AND_OP); }
+"||"                    { count(); return(OR_OP); }
+"<="                    { count(); return(LE_OP); }
+">="                    { count(); return(GE_OP); }
+"=="                    { count(); return(EQ_OP); }
+"!="                    { count(); return(NE_OP); }
+";"                     { count(); return(';'); }
+"{"                     { count(); return('{'); }
+"}"                     { count(); return('}'); }
+","                     { count(); return(','); }
+":"                     { count(); return(':'); }
+"="                     { count(); return('='); }
+"("                     { count(); return('('); }
+")"                     { count(); return(')'); }
+"."                     { count(); return('.'); }
+"&"                     { count(); return('&'); }
+"!"                     { count(); return('!'); }
+"-"                     { count(); return('-'); }
+"+"                     { count(); return('+'); }
+"*"                     { count(); return('*'); }
+"/"                     { count(); return('/'); }
+"<"                     { count(); return('<'); }
+">"                     { count(); return('>'); }
 
-L?\"(\\.|[^\\"])*\"     { /* A completer */ }
+[ \t\v\f]               { count(); }
+\n                      { count(); line_count++; }
+.                       { /* Ignorer les caracteres inconnus */ }
 
-"..."                   { /* A completer */ }
-">>="                   { /* A completer */ }
-"<<="                   { /* A completer */ }
-"+="                    { /* A completer */ }
-"-="                    { /* A completer */ }
-"*="                    { /* A completer */ }
-"/="                    { /* A completer */ }
-"%="                    { /* A completer */ }
-"&="                    { /* A completer */ }
-"^="                    { /* A completer */ }
-"|="                    { /* A completer */ }
-">>"                    { /* A completer */ }
-"<<"                    { /* A completer */ }
-"++"                    { /* A completer */ }
-"--"                    { /* A completer */ }
-"->"                    { /* A completer */ }
-"&&"                    { /* A completer */ }
-"||"                    { /* A completer */ }
-"<="                    { /* A completer */ }
-">="                    { /* A completer */ }
-"=="                    { /* A completer */ }
-"!="                    { /* A completer */ }
-
-[ \t\v\n\f]             { /* A completer */ }
-.                       { return yytext[0]; }
 %%
+
+int yywrap() {
+    return(1);
+}
+
+/* Fonction pour sauter les commentaires multi-lignes */
+void comment() {
+    char c, c1;
+loop:
+    while ((c = input()) != '*' && c != 0);
+    if ((c1 = input()) != '/' && c != 0) {
+        unput(c1);
+        goto loop;
+    }
+}
+
 
