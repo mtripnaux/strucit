@@ -4,7 +4,7 @@ L                       [a-zA-Z_]
 #include <stdio.h>
 #include "y.tab.h"
 
-/* Fonction pour compter les lignes (utile pour les erreurs) */
+/* Fonction pour compter les lignes */
 int line_count = 1;
 
 void count();
