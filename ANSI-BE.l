@@ -48,6 +48,6 @@ comment \/\*([^*]|\*+[^/*])*\*+\/
 ":"             { return ':'; }
 ","             { return ','; }
 
-.               { printf("Erreur Backend Lex : %s à la ligne %d\n", yytext, yylineno); }
+.               { printf("Erreur au Backend Lex : %s à la ligne %d\n", yytext, yylineno); }
 
 %%
