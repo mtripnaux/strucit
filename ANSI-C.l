@@ -1,78 +1,72 @@
-D                       [0-9]
-L                       [a-zA-Z_]
-% {
+%option noyywrap nounput noinput batch
+%option yylineno
+
+%{
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "../../src/Semantic_Analysis/ast.h"
 #include "y.tab.h"
 
-/* Fonction pour compter les lignes */
-int line_count = 1;
+/* On indique à Lex que ces fonctions existent dans ast.c */
+extern Ast_node *create_int_leaf(int val);
+extern Ast_node *create_id_leaf(char* name);
+%}
 
-void count();
-% }
-
-%%
-"/*"                    { comment(); } // Gestion des commentaires
-"//"[^\n]* { /* Commentaire sur une seule ligne */ }
-
-"else"                  { count(); return(ELSE); }
-"extern"                { count(); return(EXTERN); }
-"for"                   { count(); return(FOR); }
-"goto"                  { count(); return(GOTO); }
-"if"                    { count(); return(IF); }
-"int"                   { count(); return(INT); }
-"return"                { count(); return(RETURN); }
-"sizeof"                { count(); return(SIZEOF); }
-"struct"                { count(); return(STRUCT); }
-"void"                  { count(); return(VOID); }
-"while"                 { count(); return(WHILE); }
-
-{L}({L}|{D})* { count(); yylval.sval = strdup(yytext); return(IDENTIFIER); }
-{D}+                    { count(); yylval.ival = atoi(yytext); return(CONSTANT); }
-
-"->"                    { count(); return(PTR_OP); }
-"&&"                    { count(); return(AND_OP); }
-"||"                    { count(); return(OR_OP); }
-"<="                    { count(); return(LE_OP); }
-">="                    { count(); return(GE_OP); }
-"=="                    { count(); return(EQ_OP); }
-"!="                    { count(); return(NE_OP); }
-";"                     { count(); return(';'); }
-"{"                     { count(); return('{'); }
-"}"                     { count(); return('}'); }
-","                     { count(); return(','); }
-":"                     { count(); return(':'); }
-"="                     { count(); return('='); }
-"("                     { count(); return('('); }
-")"                     { count(); return(')'); }
-"."                     { count(); return('.'); }
-"&"                     { count(); return('&'); }
-"!"                     { count(); return('!'); }
-"-"                     { count(); return('-'); }
-"+"                     { count(); return('+'); }
-"*"                     { count(); return('*'); }
-"/"                     { count(); return('/'); }
-"<"                     { count(); return('<'); }
-">"                     { count(); return('>'); }
-
-[ \t\v\f]               { count(); }
-\n                      { count(); line_count++; }
-.                       { /* Ignorer les caracteres inconnus */ }
+id    [a-zA-Z_][0-9a-zA-Z_]*
+const 0|[1-9][0-9]*
+comment \/\*([^*]|\*+[^/*])*\*+\/
 
 %%
 
-int yywrap() {
-    return(1);
-}
+{comment}       { /* Ignorer les commentaires */ }
 
-/* Fonction pour sauter les commentaires multi-lignes */
-void comment() {
-    char c, c1;
-loop:
-    while ((c = input()) != '*' && c != 0);
-    if ((c1 = input()) != '/' && c != 0) {
-        unput(c1);
-        goto loop;
-    }
-}
+"extern"        { return EXTERN; }
+"int"           { return INT; }
+"void"          { return VOID; }
+"struct"        { return STRUCT; }
+"sizeof"        { return SIZEOF; }
+"if"            { return IF; }
+"else"          { return ELSE; }
+"while"         { return WHILE; }
+"for"           { return FOR; }
+"return"        { return RETURN; }
 
+"&&"            { return AND_OP; }
+"||"            { return OR_OP; }
+"<="            { return LE_OP; }
+">="            { return GE_OP; }
+"=="            { return EQ_OP; }
+"!="            { return NE_OP; }
+"->"            { return PTR_OP; }
+"<<"            { return LEFT_OP; }
+">>"            { return RIGHT_OP; }
+"++"            { return INC_OP; }
+"--"            { return DEC_OP; }
 
+{const}         { yylval.node = create_int_leaf(atoi(yytext)); return CONSTANT; }
+{id}            { yylval.node = create_id_leaf(strdup(yytext)); return IDENTIFIER; }
+
+"+"             { return '+'; }
+"-"             { return '-'; }
+"*"             { return '*'; }
+"/"             { return '/'; }
+"&"             { return '&'; }
+"="             { return '='; }
+"<"             { return '<'; }
+">"             { return '>'; }
+"("             { return '('; }
+")"             { return ')'; }
+"{"             { return '{'; }
+"}"             { return '}'; }
+"["             { return '['; }
+"]"             { return ']'; }
+";"             { return ';'; }
+","             { return ','; }
+"."             { return '.'; }
+
+[ \t\v\n\f]     { /* Ignorer les espaces et sauts de ligne */ }
+
+.               { printf("Caractère inconnu : %s à la ligne %d\n", yytext, yylineno); }
+
+%%
