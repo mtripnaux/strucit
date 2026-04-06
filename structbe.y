@@ -1,15 +1,33 @@
-%token IDENTIFIER CONSTANT 
+%{
+#include <stdio.h>
+#include <stdlib.h>
+#include "y.tab.h"
+
+extern int yylineno;
+int yylex();
+
+int yyerror(const char *s ) {
+    fprintf(stderr, "Erreur Backend : %s à la ligne %d\n", s, yylineno);
+    exit(1);
+}
+%}
+
+%define parse.error verbose
+
+%token IDENTIFIER CONSTANT
 %token LE_OP GE_OP EQ_OP NE_OP
 %token EXTERN
 %token INT VOID
 %token IF RETURN GOTO
 
 %start program
+
 %%
 
 primary_expression
         : IDENTIFIER
         | CONSTANT
+        | '(' expression ')'
         ;
 
 postfix_expression
@@ -29,9 +47,7 @@ unary_expression
         ;
 
 unary_operator
-        : '&'
-        | '*'
-        | '-'
+        : '&' | '*' | '-'
         ;
 
 multiplicative_expression
@@ -62,42 +78,7 @@ equality_expression
 
 expression
         : equality_expression
-        | unary_operator primary_expression '=' primary_expression
-        | primary_expression '=' additive_expression
-        ;
-
-declaration
-        : declaration_specifiers declarator ';'
-        ;
-
-declaration_specifiers
-        : EXTERN type_specifier
-        | type_specifier
-        ;
-
-type_specifier
-        : VOID
-        | INT
-        ;
-
-declarator
-        : '*' direct_declarator
-        | direct_declarator
-        ;
-
-direct_declarator
-        : IDENTIFIER
-        | direct_declarator '(' parameter_list ')'
-        | direct_declarator '(' ')'
-        ;
-
-parameter_list
-        : parameter_declaration
-        | parameter_list ',' parameter_declaration
-        ;
-
-parameter_declaration
-        : declaration_specifiers declarator
+        | unary_expression '=' expression
         ;
 
 statement
@@ -111,32 +92,16 @@ statement
 compound_statement
         : '{' '}'
         | '{' statement_list '}'
-        | '{' declaration_list '}'
-        | '{' declaration_list statement_list '}'
-        ;
-
-declaration_list
-        : declaration
-        | declaration_list declaration
-        ;
-
-statement_list
-        : statement
-        | statement_list statement
         ;
 
 labeled_statement
         : IDENTIFIER ':' statement
         ;
 
-expression_statement
-        : ';'
-        | expression ';'
-        ;
-
 selection_statement
         : IF '(' equality_expression ')' GOTO IDENTIFIER ';'
         ;
+
 jump_statement
         : RETURN ';'
         | RETURN expression ';'
@@ -153,9 +118,19 @@ external_declaration
         | declaration
         ;
 
+/* On réutilise les règles standards pour les fonctions et déclarations */
 function_definition
-        : declaration_specifiers declarator compound_statement
+        : type_specifier declarator compound_statement
         ;
+
+type_specifier : INT | VOID ;
+declarator : '*' IDENTIFIER | IDENTIFIER ;
+declaration : type_specifier IDENTIFIER ';' ;
+statement_list : statement | statement_list statement ;
 
 %%
 
+int main() {
+    yyparse();
+    return 0;
+}
