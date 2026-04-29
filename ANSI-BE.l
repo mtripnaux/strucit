@@ -7,13 +7,13 @@
 #include "y.tab.h"
 %}
 
-id    [a-zA-Z][a-zA-Z0-9_]*
-const [0-9]+
+id      [a-zA-Z_][a-zA-Z0-9_]*
+const   0|[1-9][0-9]*
 comment \/\*([^*]|\*+[^/*])*\*+\/
 
 %%
 
-{comment}       { /* Ignorer les commentaires */ }
+{comment}       { }
 
 "extern"        { return EXTERN; }
 "int"           { return INT; }
@@ -30,7 +30,7 @@ comment \/\*([^*]|\*+[^/*])*\*+\/
 {id}            { return IDENTIFIER; }
 {const}         { return CONSTANT; }
 
-[ \t\v\n\r\f]   { /* Ignorer les espaces */ }
+[ \t\v\n\r\f]   { }
 
 "*"             { return '*'; }
 "/"             { return '/'; }
@@ -48,6 +48,6 @@ comment \/\*([^*]|\*+[^/*])*\*+\/
 ":"             { return ':'; }
 ","             { return ','; }
 
-.               { printf("Erreur au Backend Lex : %s à la ligne %d\n", yytext, yylineno); }
+.               { fprintf(stderr, "Erreur lexicale backend : '%s' ligne %d\n", yytext, yylineno); }
 
 %%

@@ -556,7 +556,7 @@ int main(int argc, char **argv)
         return 1;
     }
     if (yyparse() == 0)
-        printf("Analyse syntaxique : OK\n");
+        printf("Analyse syntaxique frontend : OK\n");
     fclose(yyin);
     return 0;
 }
