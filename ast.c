@@ -1,38 +1,54 @@
 #include "ast.h"
 
-Ast_node *ast_create_empty_node(Ast_type type) {
-    Ast_node *node = (Ast_node *)malloc(sizeof(Ast_node));
-    node->type = type;
-    node->children = NULL;
-    node->children_count = 0;
-    node->id = NULL;
-    node->value = 0;
-    return node;
+static Ast_node *alloc_node(Ast_type type) {
+    Ast_node *n = malloc(sizeof(Ast_node));
+    n->type = type;
+    n->id = NULL;
+    n->value = 0;
+    n->size = 0;
+    n->parent = NULL;
+    n->children = NULL;
+    n->children_count = 0;
+    return n;
+}
+
+Ast_node *ast_create_node(Ast_type type) {
+    return alloc_node(type);
 }
 
 Ast_node *create_node(Ast_type type, Ast_node *c1, Ast_node *c2) {
-    Ast_node *node = ast_create_empty_node(type);
-    if (c1) ast_add_child(node, c1);
-    if (c2) ast_add_child(node, c2);
-    return node;
+    Ast_node *n = alloc_node(type);
+    if (c1) ast_add_child(n, c1);
+    if (c2) ast_add_child(n, c2);
+    return n;
 }
 
 Ast_node *create_int_leaf(int value) {
-    Ast_node *node = ast_create_empty_node(AST_CONSTANT);
-    node->value = value;
-    return node;
+    Ast_node *n = alloc_node(AST_CONSTANT);
+    n->value = value;
+    return n;
 }
 
 Ast_node *create_id_leaf(char *name) {
-    Ast_node *node = ast_create_empty_node(AST_IDENTIFIER);
-    node->id = strdup(name);
-    return node;
+    Ast_node *n = alloc_node(AST_IDENTIFIER);
+    n->id = strdup(name);
+    return n;
 }
 
 void ast_add_child(Ast_node *parent, Ast_node *child) {
     if (!parent || !child) return;
     parent->children_count++;
-    parent->children = (Ast_node **)realloc(parent->children, sizeof(Ast_node *) * parent->children_count);
+    parent->children = realloc(parent->children,
+                               sizeof(Ast_node *) * parent->children_count);
     parent->children[parent->children_count - 1] = child;
     child->parent = parent;
+}
+
+void ast_free(Ast_node *node) {
+    if (!node) return;
+    for (int i = 0; i < node->children_count; i++)
+        ast_free(node->children[i]);
+    free(node->children);
+    free(node->id);
+    free(node);
 }

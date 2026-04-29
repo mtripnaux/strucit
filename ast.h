@@ -4,32 +4,58 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
 
-typedef enum _Ast_type {
-    AST_PROGRAM, AST_FUNC_DEF, AST_RETURN, AST_FOR, AST_WHILE, AST_IF, AST_IF_ELSE,
-    AST_COMPOUND_STATEMENT, AST_EXPRESSION_STATEMENT, AST_DECLARATION,
-    AST_ASSIGN, AST_ADD, AST_SUB, AST_MUL, AST_DIV,
-    AST_LT, AST_GT, AST_LE, AST_GE, AST_EQ, AST_NE,
-    AST_AND, AST_OR, AST_LSHIFT, AST_RSHIFT,
-    AST_POST_INC, AST_POST_DEC, AST_PTR_OP, AST_DOT, AST_CALL,
-    AST_IDENTIFIER, AST_CONSTANT, AST_UNARY, AST_SIZEOF
+typedef enum {
+    AST_PROGRAM,
+    AST_FUNCTION_DEFINITION,
+    AST_DECLARATION,
+    AST_EXTERN_DECLARATION,
+    AST_STRUCT_DEFINITION,
+    AST_STRUCT_FIELD_LIST,
+    AST_STRUCT_FIELD,
+    AST_PARAM_LIST,
+    AST_PARAM,
+    AST_TYPE_SPECIFIER,
+    AST_STRUCT,
+    AST_STAR_DECLARATOR,
+    AST_DIRECT_DECLARATOR,
+    AST_FUNC_DECLARATOR,
+    AST_COMPOUND_STATEMENT,
+    AST_STATEMENT_LIST,
+    AST_EXPRESSION_STATEMENT,
+    AST_IF,
+    AST_IF_ELSE,
+    AST_WHILE,
+    AST_FOR,
+    AST_RETURN,
+    AST_ASSIGNMENT,
+    AST_OP,
+    AST_BOOL_OP,
+    AST_BOOL_LOGIC,
+    AST_POSTFIX,
+    AST_POSTFIX_POINTER,
+    AST_ARGUMENT_EXPRESSION_LIST,
+    AST_UNARY,
+    AST_UNARY_SIZEOF,
+    AST_IDENTIFIER,
+    AST_CONSTANT
 } Ast_type;
 
 typedef struct _Ast_node {
     Ast_type type;
     char *id;
     int value;
+    int size;
     struct _Ast_node *parent;
     struct _Ast_node **children;
     int children_count;
-    // ... tes autres champs (sethi_ullman, etc.)
 } Ast_node;
 
-// Prototypes synchronisés avec structfe.y
-Ast_node *create_node(Ast_type type, Ast_node *child1, Ast_node *child2);
+Ast_node *ast_create_node(Ast_type type);
+Ast_node *create_node(Ast_type type, Ast_node *c1, Ast_node *c2);
 Ast_node *create_int_leaf(int value);
 Ast_node *create_id_leaf(char *name);
 void ast_add_child(Ast_node *parent, Ast_node *child);
+void ast_free(Ast_node *node);
 
 #endif
