@@ -5,21 +5,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../../src/Semantic_Analysis/ast.h"
+#include "ast.h"
 #include "y.tab.h"
 
-/* On indique à Lex que ces fonctions existent dans ast.c */
 extern Ast_node *create_int_leaf(int val);
-extern Ast_node *create_id_leaf(char* name);
+extern Ast_node *create_id_leaf(char *name);
 %}
 
-id    [a-zA-Z_][0-9a-zA-Z_]*
-const 0|[1-9][0-9]*
+id      [a-zA-Z][a-zA-Z0-9_]*
+const   0|[1-9][0-9]*
 comment \/\*([^*]|\*+[^/*])*\*+\/
 
 %%
 
-{comment}       { /* Ignorer les commentaires */ }
+{comment}       { }
 
 "extern"        { return EXTERN; }
 "int"           { return INT; }
@@ -39,13 +38,9 @@ comment \/\*([^*]|\*+[^/*])*\*+\/
 "=="            { return EQ_OP; }
 "!="            { return NE_OP; }
 "->"            { return PTR_OP; }
-"<<"            { return LEFT_OP; }
-">>"            { return RIGHT_OP; }
-"++"            { return INC_OP; }
-"--"            { return DEC_OP; }
 
 {const}         { yylval.node = create_int_leaf(atoi(yytext)); return CONSTANT; }
-{id}            { yylval.node = create_id_leaf(strdup(yytext)); return IDENTIFIER; }
+{id}            { yylval.node = create_id_leaf(yytext); return IDENTIFIER; }
 
 "+"             { return '+'; }
 "-"             { return '-'; }
@@ -59,14 +54,12 @@ comment \/\*([^*]|\*+[^/*])*\*+\/
 ")"             { return ')'; }
 "{"             { return '{'; }
 "}"             { return '}'; }
-"["             { return '['; }
-"]"             { return ']'; }
 ";"             { return ';'; }
 ","             { return ','; }
 "."             { return '.'; }
 
-[ \t\v\n\f]     { /* Ignorer les espaces et sauts de ligne */ }
+[ \t\v\n\f]     { }
 
-.               { printf("Caractère inconnu : %s à la ligne %d\n", yytext, yylineno); }
+.               { fprintf(stderr, "Erreur lexicale : '%s' ligne %d\n", yytext, yylineno); }
 
 %%
