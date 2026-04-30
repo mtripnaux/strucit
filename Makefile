@@ -4,7 +4,7 @@ YACC    = bison
 CFLAGS  = -Wall -g -I./src/common -I./src/frontend -I./src/backend
 LDFLAGS = -lfl
 
-BIN_DIR = bin
+BIN_DIR = bin 
 FE_DIR  = src/frontend
 BE_DIR  = src/backend
 COM_DIR = src/common
