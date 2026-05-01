@@ -40,7 +40,7 @@ comment \/\*([^*]|\*+[^/*])*\*+\/
 "->"            { return PTR_OP; }
 
 {const}         { yylval.node = create_int_leaf(atoi(yytext)); return CONSTANT; }
-{id}            { yylval.node = create_id_leaf(yytext); return IDENTIFIER; }
+{id}            { yylval.node = create_id_leaf(strdup(yytext)); return IDENTIFIER; }
 
 "+"             { return '+'; }
 "-"             { return '-'; }
@@ -52,6 +52,8 @@ comment \/\*([^*]|\*+[^/*])*\*+\/
 ">"             { return '>'; }
 "("             { return '('; }
 ")"             { return ')'; }
+"["             { return '['; }
+"]"             { return ']'; }
 "{"             { return '{'; }
 "}"             { return '}'; }
 ";"             { return ';'; }
