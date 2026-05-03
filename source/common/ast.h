@@ -42,20 +42,27 @@ typedef enum {
 } Ast_type;
 
 typedef struct _Ast_node {
-    Ast_type type;
-    char *id;
-    int value;
-    int size;
-    struct _Ast_node *parent;
-    struct _Ast_node **children;
-    int children_count;
+    Ast_type type;                
+    char *id;                     
+    int value;                   
+    int size;                     
+    struct _Ast_node *parent;     
+    struct _Ast_node **children;  
+    int children_count;           
 } Ast_node;
 
+
+
 Ast_node *ast_create_node(Ast_type type);
-Ast_node *create_node(Ast_type type, Ast_node *c1, Ast_node *c2);
-Ast_node *create_int_leaf(int value);
-Ast_node *create_id_leaf(char *name);
-void ast_add_child(Ast_node *parent, Ast_node *child);
-void ast_free(Ast_node *node);
+
+Ast_node *create_node(Ast_type type, Ast_node *enfant1, Ast_node *enfant2);
+
+Ast_node *create_int_leaf(int valeur);
+
+Ast_node *create_id_leaf(char *nom);
+
+void ast_add_child(Ast_node *parent, Ast_node *enfant);
+
+void ast_free(Ast_node *noeud);
 
 #endif
