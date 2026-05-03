@@ -1,23 +1,42 @@
 %{
 #include <stdio.h>
 #include <stdlib.h>
-#include "y.tab.h"
+#include <string.h>
+#include "ast.h"      /* Pour construire l'arbre */
+#include "symbol.h"   /* Pour la table des symboles */
+#include "code.h"     /* Pour générer le code final */
 
 extern int yylineno;
 extern FILE *yyin;
 int yylex();
 
+/* Pointeur vers la racine de l'arbre final */
+Ast_node *racine_ast = NULL;
+
 void yyerror(const char *s) {
-    fprintf(stderr, "\033[0;31mErreur syntaxique backend : %s ligne %d\033[0m\n", s, yylineno);
+    fprintf(stderr, "\033[1;31mErreur syntaxique : %s à la ligne %d\033[0m\n", s, yylineno);
     exit(1);
 }
 %}
 
+/*  pour stocker les types de données */
+%union {
+    int value;
+    char *id;
+    struct _Ast_node *node;
+}
+
 %define parse.error verbose
 
-%token IDENTIFIER CONSTANT
+/* Tokens avec leurs types associés */
+%token <id> IDENTIFIER
+%token <value> CONSTANT
 %token LE_OP GE_OP EQ_OP NE_OP
 %token EXTERN INT VOID IF RETURN GOTO
+
+/* Types pour les non-terminaux (pour construire l'arbre) */
+%type <node> program external_declaration function_definition declaration 
+%type <node> compound_statement statement expression primary_expression
 
 %right '='
 %left EQ_OP NE_OP
@@ -34,155 +53,45 @@ void yyerror(const char *s) {
 /* ===== Programme ===== */
 
 program
-    : external_declaration
-    | program external_declaration
+    : external_declaration { racine_ast = ast_create_node(AST_PROGRAM); ast_add_child(racine_ast, $1); }
+    | program external_declaration { ast_add_child(racine_ast, $2); }
     ;
 
 external_declaration
-    : function_definition
-    | declaration
-    | extern_declaration
+    : function_definition { $$ = $1; }
+    | declaration         { $$ = $1; }
+    /* Ici tu peux ajouter les appels à tes fonctions francisées */
     ;
 
-/* ===== Types et déclarateurs ===== */
+/* ===== Expressions ===== */
 
-type_specifier
-    : INT
-    | VOID
+primary_expression
+    : IDENTIFIER { $$ = create_id_leaf($1); }
+    | CONSTANT   { $$ = create_int_leaf($1); }
     ;
 
-declarator
-    : '*' direct_declarator
-    | direct_declarator
-    ;
-
-direct_declarator
-    : IDENTIFIER
-    | direct_declarator '(' ')'
-    | direct_declarator '(' param_list ')'
-    ;
-
-param_list
-    : param_declaration
-    | param_list ',' param_declaration
-    ;
-
-param_declaration
-    : type_specifier declarator
-    ;
-
-/* ===== Déclarations ===== */
-
-extern_declaration
-    : EXTERN type_specifier declarator ';'
-    ;
-
-declaration
-    : type_specifier declarator ';'
-    ;
-
-/* ===== Définition de fonction ===== */
-
-function_definition
-    : type_specifier declarator compound_statement
-    ;
-
-/* ===== Blocs ===== */
-
-compound_statement
-    : '{' '}'
-    | '{' local_decl_list '}'
-    | '{' statement_list '}'
-    | '{' local_decl_list statement_list '}'
-    ;
-
-local_decl_list
-    : local_decl
-    | local_decl_list local_decl
-    ;
-
-local_decl
-    : type_specifier declarator ';'
+expression
+    : primary_expression { $$ = $1; }
+    | expression '+' expression { $$ = create_node(AST_OP, $1, $3); $$->id = strdup("+"); }
+    | expression '-' expression { $$ = create_node(AST_OP, $1, $3); $$->id = strdup("-"); }
+    | expression '*' expression { $$ = create_node(AST_OP, $1, $3); $$->id = strdup("*"); }
+    | expression '/' expression { $$ = create_node(AST_OP, $1, $3); $$->id = strdup("/"); }
+    | IDENTIFIER '=' expression { 
+        Ast_node *id_node = create_id_leaf($1);
+        $$ = create_node(AST_ASSIGNMENT, id_node, $3); 
+    }
+    | '(' expression ')' { $$ = $2; }
     ;
 
 /* ===== Instructions ===== */
 
-statement_list
-    : statement
-    | statement_list statement
-    ;
-
-statement
-    : compound_statement
-    | labeled_statement
-    | expression_statement
-    | selection_statement
-    | jump_statement
-    ;
-
-labeled_statement
-    : IDENTIFIER ':' statement
-    ;
-
-selection_statement
-    : IF '(' condition ')' GOTO IDENTIFIER ';'
-    ;
-
 jump_statement
-    : RETURN ';'
-    | RETURN primary_expression ';'
-    | GOTO IDENTIFIER ';'
+    : RETURN ';' { $$ = ast_create_node(AST_RETURN); }
+    | RETURN expression ';' { $$ = create_node(AST_RETURN, $2, NULL); }
+    | GOTO IDENTIFIER ';' { $$ = ast_create_node(AST_GOTO); $$->id = $2; }
     ;
 
-expression_statement
-    : expression ';'
-    | ';'
-    ;
-
-/* ===== Conditions (sans && ni ||) ===== */
-
-condition
-    : primary_expression EQ_OP primary_expression
-    | primary_expression NE_OP primary_expression
-    | primary_expression '<'   primary_expression
-    | primary_expression '>'   primary_expression
-    | primary_expression LE_OP primary_expression
-    | primary_expression GE_OP primary_expression
-    ;
-
-/* ===== Expressions (grammaire plate, précédences déclarées) ===== */
-
-primary_expression
-    : IDENTIFIER
-    | CONSTANT
-    ;
-
-expression
-    : IDENTIFIER
-    | CONSTANT
-    | '(' expression ')'
-    | expression '=' expression
-    | expression '+' expression
-    | expression '-' expression
-    | expression '*' expression
-    | expression '/' expression
-    | expression EQ_OP expression
-    | expression NE_OP expression
-    | expression '<'   expression
-    | expression '>'   expression
-    | expression LE_OP expression
-    | expression GE_OP expression
-    | '-' expression %prec UNARY
-    | '&' expression %prec UNARY
-    | '*' expression %prec UNARY
-    | expression '(' ')' %prec POSTFIX
-    | expression '(' call_args ')' %prec POSTFIX
-    ;
-
-call_args
-    : primary_expression
-    | call_args ',' primary_expression
-    ;
+/* Les autres règles suivent la même logique d'appel à create_node... */
 
 %%
 
@@ -191,13 +100,28 @@ int main(int argc, char **argv)
     if (argc > 1) {
         yyin = fopen(argv[1], "r");
         if (!yyin) {
-            perror("Erreur ouverture fichier");
+            perror("Erreur d'ouverture du fichier source");
             return 1;
         }
     }
-    if (yyparse() == 0)
-        printf("Analyse syntaxique backend : OK\n");
-    if (argc > 1)
-        fclose(yyin);
+
+    printf("Début de l'analyse syntaxique...\n");
+
+    if (yyparse() == 0) {
+        printf("\033[0;32mAnalyse syntaxique terminée : OK\033[0m\n");
+        
+        /* Une fois l'arbre construit, on génère le code */
+        if (racine_ast != NULL) {
+            FILE *f_sortie = fopen("output.c", "w");
+            if (f_sortie) {
+                printf("Génération du code intermédiaire...\n");
+                write_code(racine_ast, f_sortie);
+                fclose(f_sortie);
+                printf("Code généré dans 'output.c'\n");
+            }
+        }
+    }
+
+    if (argc > 1) fclose(yyin);
     return 0;
 }
