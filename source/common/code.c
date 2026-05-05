@@ -236,6 +236,30 @@ static void collecter_locales(Ast_node *nd, Symbol *scope) {
 static char *ecrire_expression(Ast_node *nd, FILE *f);
 static void ecrire_instruction(Ast_node *nd, FILE *f);
 
+static int su_label(Ast_node *n) {
+    if (!n) return 0;
+    switch (n->type) {
+    case AST_IDENTIFIER:
+    case AST_CONSTANT:
+    case AST_UNARY_SIZEOF:
+        return 1;
+    case AST_OP:
+    case AST_BOOL_OP:
+    case AST_BOOL_LOGIC: {
+        if (n->children_count < 2) return 1;
+        int ll = su_label(n->children[0]);
+        int lr = su_label(n->children[1]);
+        if (ll == lr) return ll + 1;
+        return ll > lr ? ll : lr;
+    }
+    case AST_UNARY:
+        if (n->children_count >= 2) return su_label(n->children[1]);
+        return 1;
+    default:
+        return 1;
+    }
+}
+
 // écrit les conditions avec des goto dans le fichier (if, while, for
 static void ecrire_condition(Ast_node *cond, int lbl, int jump_if_true, FILE *f) {
     if (!cond) return;
@@ -301,10 +325,18 @@ static char *ecrire_expression(Ast_node *nd, FILE *f) {
         return buf;
     }
 
-    case AST_OP: {     // opération binaire
+    case AST_OP: {     // opération binaire (Sethi-Ullman: évalue la sous-expr la plus lourde en premier)
         if (nd->children_count < 2) { g_expr_sname = NULL; return strdup("0"); }
-        char *l = ecrire_expression(nd->children[0], f);
-        char *r = ecrire_expression(nd->children[1], f);
+        int sl = su_label(nd->children[0]);
+        int sr = su_label(nd->children[1]);
+        char *l, *r;
+        if (sr > sl) {
+            r = ecrire_expression(nd->children[1], f);
+            l = ecrire_expression(nd->children[0], f);
+        } else {
+            l = ecrire_expression(nd->children[0], f);
+            r = ecrire_expression(nd->children[1], f);
+        }
         char *t = creer_temp("int", NULL);
         ecrire_indentation(f);
         fprintf(f, "%s = %s %s %s;\n", t, l, nd->id, r);
@@ -313,10 +345,18 @@ static char *ecrire_expression(Ast_node *nd, FILE *f) {
         return t;
     }
 
-    case AST_BOOL_OP: {  // comparaisons
+    case AST_BOOL_OP: {  // comparaisons (Sethi-Ullman)
         if (nd->children_count < 2) { g_expr_sname = NULL; return strdup("0"); }
-        char *l = ecrire_expression(nd->children[0], f);
-        char *r = ecrire_expression(nd->children[1], f);
+        int sl = su_label(nd->children[0]);
+        int sr = su_label(nd->children[1]);
+        char *l, *r;
+        if (sr > sl) {
+            r = ecrire_expression(nd->children[1], f);
+            l = ecrire_expression(nd->children[0], f);
+        } else {
+            l = ecrire_expression(nd->children[0], f);
+            r = ecrire_expression(nd->children[1], f);
+        }
         char *t = creer_temp("int", NULL);
         ecrire_indentation(f);
         fprintf(f, "%s = (%s %s %s) ? 1 : 0;\n", t, l, nd->id, r);
