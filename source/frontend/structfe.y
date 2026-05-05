@@ -3,10 +3,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include "ast.h"
+#include "code.h"
 
 extern int yylineno;
 extern FILE *yyin;
 int yylex();
+
+static Ast_node *racine_ast = NULL;
 
 void yyerror(const char *s) {
     fprintf(stderr, "\033[0;31mErreur syntaxique : %s ligne %d\033[0m\n", s, yylineno);
@@ -21,6 +24,7 @@ void yyerror(const char *s) {
 %token <node> IDENTIFIER CONSTANT
 %token SIZEOF PTR_OP
 %token LE_OP GE_OP EQ_OP NE_OP AND_OP OR_OP
+%token LSHIFT_OP RSHIFT_OP INC_OP DEC_OP
 %token EXTERN INT VOID STRUCT IF ELSE WHILE FOR RETURN
 
 %type <node> program external_declaration
@@ -38,10 +42,11 @@ void yyerror(const char *s) {
 %left AND_OP
 %left EQ_OP NE_OP
 %left '<' '>' LE_OP GE_OP
+%left LSHIFT_OP RSHIFT_OP
 %left '+' '-'
 %left '*' '/'
 %right UMINUS
-%left POSTFIX '(' PTR_OP
+%left POSTFIX '(' PTR_OP INC_OP DEC_OP
 
 %start program
 
@@ -54,11 +59,13 @@ program
     {
         $$ = ast_create_node(AST_PROGRAM);
         ast_add_child($$, $1);
+        racine_ast = $$;
     }
     | program external_declaration
     {
         ast_add_child($1, $2);
         $$ = $1;
+        racine_ast = $$;
     }
     ;
 
@@ -487,6 +494,20 @@ expression
         ast_add_child($$, $1);
         ast_add_child($$, $3);
     }
+    | expression LSHIFT_OP expression
+    {
+        $$ = ast_create_node(AST_OP);
+        $$->id = strdup("<<");
+        ast_add_child($$, $1);
+        ast_add_child($$, $3);
+    }
+    | expression RSHIFT_OP expression
+    {
+        $$ = ast_create_node(AST_OP);
+        $$->id = strdup(">>");
+        ast_add_child($$, $1);
+        ast_add_child($$, $3);
+    }
     | '-' expression %prec UMINUS
     {
         $$ = ast_create_node(AST_UNARY);
@@ -510,6 +531,16 @@ expression
         $$ = ast_create_node(AST_UNARY_SIZEOF);
         ast_add_child($$, $3);
     }
+    | SIZEOF '(' INT ')' %prec UMINUS
+    {
+        $$ = ast_create_node(AST_UNARY_SIZEOF);
+        ast_add_child($$, create_id_leaf("int"));
+    }
+    | SIZEOF '(' VOID ')' %prec UMINUS
+    {
+        $$ = ast_create_node(AST_UNARY_SIZEOF);
+        ast_add_child($$, create_id_leaf("void"));
+    }
     | expression '(' ')' %prec POSTFIX
     {
         $$ = ast_create_node(AST_POSTFIX);
@@ -526,6 +557,30 @@ expression
         $$ = ast_create_node(AST_POSTFIX_POINTER);
         ast_add_child($$, $1);
         ast_add_child($$, $3);
+    }
+    | expression INC_OP %prec POSTFIX
+    {
+        $$ = ast_create_node(AST_POSTFIX);
+        ast_add_child($$, $1);
+        ast_add_child($$, create_id_leaf("++"));
+    }
+    | expression DEC_OP %prec POSTFIX
+    {
+        $$ = ast_create_node(AST_POSTFIX);
+        ast_add_child($$, $1);
+        ast_add_child($$, create_id_leaf("--"));
+    }
+    | INC_OP expression %prec UMINUS
+    {
+        $$ = ast_create_node(AST_UNARY);
+        ast_add_child($$, create_id_leaf("++"));
+        ast_add_child($$, $2);
+    }
+    | DEC_OP expression %prec UMINUS
+    {
+        $$ = ast_create_node(AST_UNARY);
+        ast_add_child($$, create_id_leaf("--"));
+        ast_add_child($$, $2);
     }
     ;
 
@@ -547,16 +602,21 @@ argument_expression_list
 int main(int argc, char **argv)
 {
     if (argc < 2) {
-        fprintf(stderr, "Usage: %s <fichier.c>\n", argv[0]);
+        fprintf(stderr, "Usage: %s <source.c> [sortie.c]\n", argv[0]);
         return 1;
     }
     yyin = fopen(argv[1], "r");
-    if (!yyin) {
-        perror("Erreur ouverture fichier");
-        return 1;
-    }
-    if (yyparse() == 0)
-        printf("Analyse syntaxique frontend : OK\n");
+    if (!yyin) { perror("Erreur ouverture fichier"); return 1; }
+
+    if (yyparse() != 0) { fclose(yyin); return 1; }
     fclose(yyin);
+
+    FILE *out = stdout;
+    if (argc >= 3) {
+        out = fopen(argv[2], "w");
+        if (!out) { perror("Erreur création fichier sortie"); return 1; }
+    }
+    write_code(racine_ast, out);
+    if (out != stdout) fclose(out);
     return 0;
 }

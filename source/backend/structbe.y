@@ -36,7 +36,7 @@ void yyerror(const char *s) {
 
 /* Types pour les non-terminaux (pour construire l'arbre) */
 %type <node> program external_declaration function_definition declaration 
-%type <node> compound_statement statement expression primary_expression
+%type <node> compound_statement statement expression primary_expression jump_statement
 
 %right '='
 %left EQ_OP NE_OP
@@ -61,6 +61,29 @@ external_declaration
     : function_definition { $$ = $1; }
     | declaration         { $$ = $1; }
     /* Ici tu peux ajouter les appels à tes fonctions francisées */
+    ;
+
+/* ===== Déclarations ===== */
+
+function_definition
+    : INT IDENTIFIER '(' ')' compound_statement 
+        { $$ = create_node(AST_FUNCTION_DEFINITION, create_id_leaf($2), $5); }
+    ;
+
+declaration
+    : INT IDENTIFIER ';' 
+        { $$ = create_id_leaf($2); }
+    ;
+
+compound_statement
+    : '{' '}' { $$ = ast_create_node(AST_COMPOUND_STATEMENT); }
+    | '{' statement '}' { $$ = ast_create_node(AST_COMPOUND_STATEMENT); ast_add_child($$, $2); }
+    ;
+
+statement
+    : expression ';' { $$ = $1; }
+    | jump_statement { $$ = $1; }
+    | compound_statement { $$ = $1; }
     ;
 
 /* ===== Expressions ===== */
@@ -88,7 +111,7 @@ expression
 jump_statement
     : RETURN ';' { $$ = ast_create_node(AST_RETURN); }
     | RETURN expression ';' { $$ = create_node(AST_RETURN, $2, NULL); }
-    | GOTO IDENTIFIER ';' { $$ = ast_create_node(AST_GOTO); $$->id = $2; }
+    | GOTO IDENTIFIER ';' { $$ = ast_create_node(AST_RETURN); $$->id = $2; }
     ;
 
 /* Les autres règles suivent la même logique d'appel à create_node... */

@@ -8,3 +8,4 @@ lex.yy.c
 bin/*
 output/*
 *.tab.*
+*.be.c

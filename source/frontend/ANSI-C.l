@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "ast.h"
-#include "y.tab.h"
+#include "structfe.tab.h"
 
 extern Ast_node *create_int_leaf(int val);
 extern Ast_node *create_id_leaf(char *name);
@@ -38,6 +38,10 @@ comment \/\*([^*]|\*+[^/*])*\*+\/
 "=="            { return EQ_OP; }
 "!="            { return NE_OP; }
 "->"            { return PTR_OP; }
+"<<"            { return LSHIFT_OP; }
+">>"            { return RSHIFT_OP; }
+"++"            { return INC_OP; }
+"--"            { return DEC_OP; }
 
 {const}         { yylval.node = create_int_leaf(atoi(yytext)); return CONSTANT; }
 {id}            { yylval.node = create_id_leaf(strdup(yytext)); return IDENTIFIER; }
@@ -60,7 +64,7 @@ comment \/\*([^*]|\*+[^/*])*\*+\/
 ","             { return ','; }
 "."             { return '.'; }
 
-[ \t\v\n\f]     { }
+[ \t\v\n\r\f]   { }
 
 .               { fprintf(stderr, "Erreur lexicale : '%s' ligne %d\n", yytext, yylineno); }
 
