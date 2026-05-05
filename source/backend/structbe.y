@@ -31,7 +31,7 @@ void yyerror(const char *s) {
 /* Tokens avec leurs types associés */
 %token <id> IDENTIFIER
 %token <value> CONSTANT
-%token LE_OP GE_OP EQ_OP NE_OP
+%token LE_OP GE_OP EQ_OP NE_OP AND_OP OR_OP
 %token EXTERN INT VOID IF RETURN GOTO
 
 /* Types pour les non-terminaux (pour construire l'arbre) */
@@ -39,6 +39,8 @@ void yyerror(const char *s) {
 %type <node> compound_statement statement expression primary_expression jump_statement
 
 %right '='
+%left OR_OP
+%left AND_OP
 %left EQ_OP NE_OP
 %left '<' '>' LE_OP GE_OP
 %left '+' '-'

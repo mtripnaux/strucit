@@ -8,12 +8,9 @@
 #include "structbe.tab.h"
 %}
 
-id      [a-zA-Z_][a-zA-Z0-9_]*
-const   0|[1-9][0-9]*
-
 %%
 
-\/\*([^*]|\*+[^/*])*\*+\/  { /* Ignorer les commentaires */ }
+"/*"([^*]|\*+[^*/])*\*+"/"  { /* Ignorer les commentaires */ }
 
 "extern"  { return EXTERN; }
 "int"     { return INT; }
@@ -22,26 +19,17 @@ const   0|[1-9][0-9]*
 "if"      { return IF; }
 "return"  { return RETURN; }
 
-/* Opérateurs complexes */
-"<="            { return LE_OP; }
-">="            { return GE_OP; }
-"=="            { return EQ_OP; }
-"!="            { return NE_OP; }
-"&&"            { return AND_OP; }
-"||"            { return OR_OP; }
+"<="      { return LE_OP; }
+">="      { return GE_OP; }
+"=="      { return EQ_OP; }
+"!="      { return NE_OP; }
+"&&"      { return AND_OP; }
+"||"      { return OR_OP; }
 
-/* Identifiants et Constantes */
-{id}            { 
-                  yylval.id = strdup(yytext); // On transmet le nom au Parser
-                  return IDENTIFIER; 
-                }
+[a-zA-Z_][a-zA-Z0-9_]*  { yylval.id = strdup(yytext); return IDENTIFIER; }
 
-{const}         { 
-                  yylval.value = atoi(yytext); // On transmet la valeur au Parser
-                  return CONSTANT; 
-                }
+0|[1-9][0-9]*           { yylval.value = atoi(yytext); return CONSTANT; }
 
-/* Espaces et sauts de ligne (ignorés) */
 [ \t\v\n\r\f]   { }
 
 "*"       { return '*'; }
@@ -59,7 +47,6 @@ const   0|[1-9][0-9]*
 ":"       { return ':'; }
 ","       { return ','; }
 
-/* Erreur par défaut */
 .               { fprintf(stderr, "Erreur lexicale : caractère '%s' inconnu à la ligne %d\n", yytext, yylineno); }
 
 %%
