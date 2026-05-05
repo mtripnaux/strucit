@@ -28,14 +28,19 @@ void yyerror(const char *s) {
 %token EXTERN INT VOID STRUCT IF ELSE WHILE FOR RETURN
 
 %type <node> program external_declaration
-%type <node> struct_definition struct_field_list struct_field
-%type <node> declaration extern_declaration function_definition
-%type <node> declaration_specifiers declarator direct_declarator
-%type <node> param_list param_declaration
-%type <node> argument_expression_list expression
-%type <node> compound_statement local_decl_list local_decl
-%type <node> statement_list matched_statement unmatched_statement
+%type <node> struct_specifier struct_declaration_list struct_declaration
+%type <node> declaration declaration_specifiers type_specifier declarator direct_declarator
+%type <node> parameter_list parameter_declaration
+%type <node> function_definition
+%type <node> compound_statement declaration_list statement_list
+%type <node> matched_statement unmatched_statement
 %type <node> expression_statement jump_statement
+%type <node> primary_expression postfix_expression unary_expression unary_operator
+%type <node> multiplicative_expression additive_expression
+%type <node> shift_expression relational_expression equality_expression
+%type <node> logical_and_expression logical_or_expression
+%type <node> expression
+%type <node> argument_expression_list
 
 %right '='
 %left OR_OP
@@ -46,14 +51,12 @@ void yyerror(const char *s) {
 %left '+' '-'
 %left '*' '/'
 %right UMINUS
-%left POSTFIX '(' PTR_OP INC_OP DEC_OP
 
 %start program
 
 %%
 
-/* ===== Programme ===== */
-
+// Racine AST avec déclarations externes
 program
     : external_declaration
     {
@@ -69,87 +72,112 @@ program
     }
     ;
 
+// Externes fonction / déclaration globale
 external_declaration
     : function_definition    { $$ = $1; }
     | declaration            { $$ = $1; }
-    | struct_definition ';'  { $$ = $1; }
-    | extern_declaration ';' { $$ = $1; }
     ;
 
-/* ===== Structures ===== */
-
-struct_definition
-    : STRUCT IDENTIFIER '{' struct_field_list '}'
+// Déclaration type + déclarateur ou struct seul
+declaration
+    : declaration_specifiers declarator ';'
     {
+        // EXTERN marqué avec value=1 dans declaration_specifiers
+        if ($1->value == 1) {
+            $$ = ast_create_node(AST_EXTERN_DECLARATION);
+            ast_add_child($$, $1);
+            ast_add_child($$, $2);
+        } else {
+            $$ = ast_create_node(AST_DECLARATION);
+            ast_add_child($$, $1);
+            ast_add_child($$, $2);
+        }
+    }
+    | struct_specifier ';'
+    {
+        // Déclaration de struct seule (struct Foo { ... };)
+        $$ = $1;
+    }
+    ;
+
+// Extern optionnel + type primitif/struct
+declaration_specifiers
+    : type_specifier
+    {
+        $$ = $1;
+        $$->value = 0;  // regular
+    }
+    | EXTERN type_specifier
+    {
+        $$ = $2;
+        $$->value = 1;  // extern
+    }
+    ;
+
+// void, int, ou struct
+type_specifier
+    : VOID
+    {
+        $$ = ast_create_node(AST_TYPE_SPECIFIER);
+        $$->id = strdup("void");
+        $$->size = 0;
+    }
+    | INT
+    {
+        $$ = ast_create_node(AST_TYPE_SPECIFIER);
+        $$->id = strdup("int");
+        $$->size = 4;
+    }
+    | struct_specifier
+    {
+        $$ = $1;
+    }
+    ;
+
+// Définition struct avec corps ou référence par nom
+struct_specifier
+    : STRUCT IDENTIFIER '{' struct_declaration_list '}'
+    {
+        // Définition complète struct Foo { ... }
         $$ = ast_create_node(AST_STRUCT_DEFINITION);
         ast_add_child($$, $2);
         ast_add_child($$, $4);
     }
+    | STRUCT '{' struct_declaration_list '}'
+    {
+        // Struct anonyme (rare)
+        $$ = ast_create_node(AST_STRUCT_DEFINITION);
+        ast_add_child($$, $3);
+    }
+    | STRUCT IDENTIFIER
+    {
+        // Référence struct Foo (type reference)
+        $$ = ast_create_node(AST_STRUCT);
+        ast_add_child($$, $2);
+    }
     ;
 
-struct_field_list
-    : struct_field
+struct_declaration_list
+    : struct_declaration
     {
         $$ = ast_create_node(AST_STRUCT_FIELD_LIST);
         ast_add_child($$, $1);
     }
-    | struct_field_list struct_field
+    | struct_declaration_list struct_declaration
     {
         ast_add_child($1, $2);
         $$ = $1;
     }
     ;
 
-struct_field
-    : declaration_specifiers declarator ';'
+struct_declaration
+    : type_specifier declarator ';'
     {
         $$ = ast_create_node(AST_STRUCT_FIELD);
         ast_add_child($$, $1);
         ast_add_child($$, $2);
     }
     ;
-
-/* ===== Déclarations ===== */
-
-extern_declaration
-    : EXTERN declaration_specifiers declarator
-    {
-        $$ = ast_create_node(AST_EXTERN_DECLARATION);
-        ast_add_child($$, $2);
-        ast_add_child($$, $3);
-    }
-    ;
-
-declaration
-    : declaration_specifiers declarator ';'
-    {
-        $$ = ast_create_node(AST_DECLARATION);
-        ast_add_child($$, $1);
-        ast_add_child($$, $2);
-    }
-    ;
-
-declaration_specifiers
-    : INT
-    {
-        $$ = ast_create_node(AST_TYPE_SPECIFIER);
-        $$->id   = strdup("int");
-        $$->size = 4;
-    }
-    | VOID
-    {
-        $$ = ast_create_node(AST_TYPE_SPECIFIER);
-        $$->id   = strdup("void");
-        $$->size = 0;
-    }
-    | STRUCT IDENTIFIER
-    {
-        $$ = ast_create_node(AST_STRUCT);
-        ast_add_child($$, $2);
-    }
-    ;
-
-/* ===== Déclarateurs ===== */
 
 declarator
     : '*' direct_declarator
@@ -177,7 +205,7 @@ direct_declarator
         $$ = ast_create_node(AST_DIRECT_DECLARATOR);
         ast_add_child($$, $1);
     }
-    | direct_declarator '(' param_list ')'
+    | direct_declarator '(' parameter_list ')'
     {
         $$ = ast_create_node(AST_FUNC_DECLARATOR);
         ast_add_child($$, $1);
@@ -185,22 +213,20 @@ direct_declarator
     }
     ;
 
-/* ===== Paramètres ===== */
-
-param_list
-    : param_declaration
+parameter_list
+    : parameter_declaration
     {
         $$ = ast_create_node(AST_PARAM_LIST);
         ast_add_child($$, $1);
     }
-    | param_list ',' param_declaration
+    | parameter_list ',' parameter_declaration
     {
         ast_add_child($1, $3);
         $$ = $1;
     }
     ;
 
-param_declaration
+parameter_declaration
     : declaration_specifiers declarator
     {
         $$ = ast_create_node(AST_PARAM);
@@ -209,8 +235,7 @@ param_declaration
     }
     ;
 
-/* ===== Définition de fonction ===== */
-
+// Def de fonction
 function_definition
     : declaration_specifiers declarator compound_statement
     {
@@ -221,14 +246,13 @@ function_definition
     }
     ;
 
-/* ===== Blocs ===== */
-
+// Bloc {} avec déclarations optionnelles + statements
 compound_statement
     : '{' '}'
     {
         $$ = ast_create_node(AST_COMPOUND_STATEMENT);
     }
-    | '{' local_decl_list '}'
+    | '{' declaration_list '}'
     {
         $$ = ast_create_node(AST_COMPOUND_STATEMENT);
         ast_add_child($$, $2);
@@ -238,7 +262,7 @@ compound_statement
         $$ = ast_create_node(AST_COMPOUND_STATEMENT);
         ast_add_child($$, $2);
     }
-    | '{' local_decl_list statement_list '}'
+    | '{' declaration_list statement_list '}'
     {
         $$ = ast_create_node(AST_COMPOUND_STATEMENT);
         ast_add_child($$, $2);
@@ -246,29 +270,18 @@ compound_statement
     }
     ;
 
-local_decl_list
-    : local_decl
+declaration_list
+    : declaration
     {
         $$ = ast_create_node(AST_STATEMENT_LIST);
         ast_add_child($$, $1);
     }
-    | local_decl_list local_decl
+    | declaration_list declaration
     {
         ast_add_child($1, $2);
         $$ = $1;
     }
     ;
-
-local_decl
-    : declaration_specifiers declarator ';'
-    {
-        $$ = ast_create_node(AST_DECLARATION);
-        ast_add_child($$, $1);
-        ast_add_child($$, $2);
-    }
-    ;
-
-/* ===== Instructions ===== */
 
 statement_list
     : matched_statement
@@ -293,6 +306,7 @@ statement_list
     }
     ;
 
+// Instruction avec else appairé (pas de dangling else)
 matched_statement
     : expression_statement
     {
@@ -329,6 +343,7 @@ matched_statement
     }
     ;
 
+// Sans else apparié (dangling else possible)
 unmatched_statement
     : IF '(' expression ')' matched_statement
     {
@@ -389,9 +404,8 @@ jump_statement
     }
     ;
 
-/* ===== Expressions (grammaire plate, précédences déclarées) ===== */
-
-expression
+// Expression primaire : identifiant, constante, (expr)
+primary_expression
     : IDENTIFIER
     {
         $$ = $1;
@@ -404,183 +418,259 @@ expression
     {
         $$ = $2;
     }
-    | expression '=' expression
+    ;
+
+// Expression postfix : appels fonction, accès struct
+postfix_expression
+    : primary_expression
     {
-        $$ = ast_create_node(AST_ASSIGNMENT);
+        $$ = $1;
+    }
+    | postfix_expression '(' ')'
+    {
+        $$ = ast_create_node(AST_POSTFIX);
+        ast_add_child($$, $1);
+    }
+    | postfix_expression '(' argument_expression_list ')'
+    {
+        $$ = ast_create_node(AST_POSTFIX);
         ast_add_child($$, $1);
         ast_add_child($$, $3);
     }
-    | expression OR_OP expression
+    | postfix_expression PTR_OP IDENTIFIER
     {
-        $$ = ast_create_node(AST_BOOL_LOGIC);
-        $$->id = strdup("||");
+        $$ = ast_create_node(AST_POSTFIX_POINTER);
         ast_add_child($$, $1);
         ast_add_child($$, $3);
     }
-    | expression AND_OP expression
+    | postfix_expression INC_OP
     {
-        $$ = ast_create_node(AST_BOOL_LOGIC);
-        $$->id = strdup("&&");
+        $$ = ast_create_node(AST_POSTFIX);
         ast_add_child($$, $1);
-        ast_add_child($$, $3);
+        ast_add_child($$, create_id_leaf("++"));
     }
-    | expression EQ_OP expression
+    | postfix_expression DEC_OP
     {
-        $$ = ast_create_node(AST_BOOL_OP);
-        $$->id = strdup("==");
+        $$ = ast_create_node(AST_POSTFIX);
         ast_add_child($$, $1);
-        ast_add_child($$, $3);
+        ast_add_child($$, create_id_leaf("--"));
     }
-    | expression NE_OP expression
+    ;
+
+// Opérateurs unaires, sizeof
+unary_expression
+    : postfix_expression
     {
-        $$ = ast_create_node(AST_BOOL_OP);
-        $$->id = strdup("!=");
-        ast_add_child($$, $1);
-        ast_add_child($$, $3);
+        $$ = $1;
     }
-    | expression '<' expression
+    | unary_operator unary_expression
     {
-        $$ = ast_create_node(AST_BOOL_OP);
-        $$->id = strdup("<");
+        $$ = ast_create_node(AST_UNARY);
         ast_add_child($$, $1);
-        ast_add_child($$, $3);
+        ast_add_child($$, $2);
     }
-    | expression '>' expression
+    | SIZEOF unary_expression
     {
-        $$ = ast_create_node(AST_BOOL_OP);
-        $$->id = strdup(">");
-        ast_add_child($$, $1);
-        ast_add_child($$, $3);
+        $$ = ast_create_node(AST_UNARY_SIZEOF);
+        ast_add_child($$, $2);
     }
-    | expression LE_OP expression
+    | SIZEOF '(' INT ')'
     {
-        $$ = ast_create_node(AST_BOOL_OP);
-        $$->id = strdup("<=");
-        ast_add_child($$, $1);
-        ast_add_child($$, $3);
+        $$ = ast_create_node(AST_UNARY_SIZEOF);
+        ast_add_child($$, create_id_leaf("int"));
     }
-    | expression GE_OP expression
+    | SIZEOF '(' VOID ')'
     {
-        $$ = ast_create_node(AST_BOOL_OP);
-        $$->id = strdup(">=");
-        ast_add_child($$, $1);
-        ast_add_child($$, $3);
+        $$ = ast_create_node(AST_UNARY_SIZEOF);
+        ast_add_child($$, create_id_leaf("void"));
     }
-    | expression '+' expression
+    | INC_OP unary_expression
     {
-        $$ = ast_create_node(AST_OP);
-        $$->id = strdup("+");
-        ast_add_child($$, $1);
-        ast_add_child($$, $3);
+        $$ = ast_create_node(AST_UNARY);
+        ast_add_child($$, create_id_leaf("++"));
+        ast_add_child($$, $2);
     }
-    | expression '-' expression
+    | DEC_OP unary_expression
     {
-        $$ = ast_create_node(AST_OP);
-        $$->id = strdup("-");
-        ast_add_child($$, $1);
-        ast_add_child($$, $3);
+        $$ = ast_create_node(AST_UNARY);
+        ast_add_child($$, create_id_leaf("--"));
+        ast_add_child($$, $2);
     }
-    | expression '*' expression
+    ;
+
+// &, *, -
+unary_operator
+    : '&'
+    {
+        $$ = create_id_leaf("&");
+    }
+    | '*'
+    {
+        $$ = create_id_leaf("*");
+    }
+    | '-'
+    {
+        $$ = create_id_leaf("-");
+    }
+    ;
+
+multiplicative_expression
+    : unary_expression
+    {
+        $$ = $1;
+    }
+    | multiplicative_expression '*' unary_expression
     {
         $$ = ast_create_node(AST_OP);
         $$->id = strdup("*");
         ast_add_child($$, $1);
         ast_add_child($$, $3);
     }
-    | expression '/' expression
+    | multiplicative_expression '/' unary_expression
     {
         $$ = ast_create_node(AST_OP);
         $$->id = strdup("/");
         ast_add_child($$, $1);
         ast_add_child($$, $3);
     }
-    | expression LSHIFT_OP expression
+    ;
+
+additive_expression
+    : multiplicative_expression
+    {
+        $$ = $1;
+    }
+    | additive_expression '+' multiplicative_expression
+    {
+        $$ = ast_create_node(AST_OP);
+        $$->id = strdup("+");
+        ast_add_child($$, $1);
+        ast_add_child($$, $3);
+    }
+    | additive_expression '-' multiplicative_expression
+    {
+        $$ = ast_create_node(AST_OP);
+        $$->id = strdup("-");
+        ast_add_child($$, $1);
+        ast_add_child($$, $3);
+    }
+    ;
+
+shift_expression
+    : additive_expression
+    {
+        $$ = $1;
+    }
+    | shift_expression LSHIFT_OP additive_expression
     {
         $$ = ast_create_node(AST_OP);
         $$->id = strdup("<<");
         ast_add_child($$, $1);
         ast_add_child($$, $3);
     }
-    | expression RSHIFT_OP expression
+    | shift_expression RSHIFT_OP additive_expression
     {
         $$ = ast_create_node(AST_OP);
         $$->id = strdup(">>");
         ast_add_child($$, $1);
         ast_add_child($$, $3);
     }
-    | '-' expression %prec UMINUS
+    ;
+
+relational_expression
+    : shift_expression
     {
-        $$ = ast_create_node(AST_UNARY);
-        ast_add_child($$, create_id_leaf("-"));
-        ast_add_child($$, $2);
+        $$ = $1;
     }
-    | '&' expression %prec UMINUS
+    | relational_expression '<' shift_expression
     {
-        $$ = ast_create_node(AST_UNARY);
-        ast_add_child($$, create_id_leaf("&"));
-        ast_add_child($$, $2);
-    }
-    | '*' expression %prec UMINUS
-    {
-        $$ = ast_create_node(AST_UNARY);
-        ast_add_child($$, create_id_leaf("*"));
-        ast_add_child($$, $2);
-    }
-    | SIZEOF '(' expression ')' %prec UMINUS
-    {
-        $$ = ast_create_node(AST_UNARY_SIZEOF);
-        ast_add_child($$, $3);
-    }
-    | SIZEOF '(' INT ')' %prec UMINUS
-    {
-        $$ = ast_create_node(AST_UNARY_SIZEOF);
-        ast_add_child($$, create_id_leaf("int"));
-    }
-    | SIZEOF '(' VOID ')' %prec UMINUS
-    {
-        $$ = ast_create_node(AST_UNARY_SIZEOF);
-        ast_add_child($$, create_id_leaf("void"));
-    }
-    | expression '(' ')' %prec POSTFIX
-    {
-        $$ = ast_create_node(AST_POSTFIX);
-        ast_add_child($$, $1);
-    }
-    | expression '(' argument_expression_list ')' %prec POSTFIX
-    {
-        $$ = ast_create_node(AST_POSTFIX);
+        $$ = ast_create_node(AST_BOOL_OP);
+        $$->id = strdup("<");
         ast_add_child($$, $1);
         ast_add_child($$, $3);
     }
-    | expression PTR_OP IDENTIFIER %prec POSTFIX
+    | relational_expression '>' shift_expression
     {
-        $$ = ast_create_node(AST_POSTFIX_POINTER);
+        $$ = ast_create_node(AST_BOOL_OP);
+        $$->id = strdup(">");
         ast_add_child($$, $1);
         ast_add_child($$, $3);
     }
-    | expression INC_OP %prec POSTFIX
+    | relational_expression LE_OP shift_expression
     {
-        $$ = ast_create_node(AST_POSTFIX);
+        $$ = ast_create_node(AST_BOOL_OP);
+        $$->id = strdup("<=");
         ast_add_child($$, $1);
-        ast_add_child($$, create_id_leaf("++"));
+        ast_add_child($$, $3);
     }
-    | expression DEC_OP %prec POSTFIX
+    | relational_expression GE_OP shift_expression
     {
-        $$ = ast_create_node(AST_POSTFIX);
+        $$ = ast_create_node(AST_BOOL_OP);
+        $$->id = strdup(">=");
         ast_add_child($$, $1);
-        ast_add_child($$, create_id_leaf("--"));
+        ast_add_child($$, $3);
     }
-    | INC_OP expression %prec UMINUS
+    ;
+
+equality_expression
+    : relational_expression
     {
-        $$ = ast_create_node(AST_UNARY);
-        ast_add_child($$, create_id_leaf("++"));
-        ast_add_child($$, $2);
+        $$ = $1;
     }
-    | DEC_OP expression %prec UMINUS
+    | equality_expression EQ_OP relational_expression
     {
-        $$ = ast_create_node(AST_UNARY);
-        ast_add_child($$, create_id_leaf("--"));
-        ast_add_child($$, $2);
+        $$ = ast_create_node(AST_BOOL_OP);
+        $$->id = strdup("==");
+        ast_add_child($$, $1);
+        ast_add_child($$, $3);
+    }
+    | equality_expression NE_OP relational_expression
+    {
+        $$ = ast_create_node(AST_BOOL_OP);
+        $$->id = strdup("!=");
+        ast_add_child($$, $1);
+        ast_add_child($$, $3);
+    }
+    ;
+
+logical_and_expression
+    : equality_expression
+    {
+        $$ = $1;
+    }
+    | logical_and_expression AND_OP equality_expression
+    {
+        $$ = ast_create_node(AST_BOOL_LOGIC);
+        $$->id = strdup("&&");
+        ast_add_child($$, $1);
+        ast_add_child($$, $3);
+    }
+    ;
+
+logical_or_expression
+    : logical_and_expression
+    {
+        $$ = $1;
+    }
+    | logical_or_expression OR_OP logical_and_expression
+    {
+        $$ = ast_create_node(AST_BOOL_LOGIC);
+        $$->id = strdup("||");
+        ast_add_child($$, $1);
+        ast_add_child($$, $3);
+    }
+    ;
+
+expression
+    : logical_or_expression
+    {
+        $$ = $1;
+    }
+    | unary_expression '=' expression
+    {
+        $$ = ast_create_node(AST_ASSIGNMENT);
+        ast_add_child($$, $1);
+        ast_add_child($$, $3);
     }
     ;
 
