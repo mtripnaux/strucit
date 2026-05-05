@@ -2,16 +2,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "ast.h"      /* Pour construire l'arbre */
-#include "symbol.h"   /* Pour la table des symboles */
-#include "code.h"     /* Pour générer le code final */
 
 extern int yylineno;
 extern FILE *yyin;
 int yylex();
-
-/* Pointeur vers la racine de l'arbre final */
-Ast_node *racine_ast = NULL;
 
 void yyerror(const char *s) {
     fprintf(stderr, "\033[1;31mErreur syntaxique : %s à la ligne %d\033[0m\n", s, yylineno);
@@ -19,104 +13,177 @@ void yyerror(const char *s) {
 }
 %}
 
-/*  pour stocker les types de données */
 %union {
-    int value;
+    int   value;
     char *id;
-    struct _Ast_node *node;
 }
 
 %define parse.error verbose
 
-/* Tokens avec leurs types associés */
-%token <id> IDENTIFIER
+%token <id>    IDENTIFIER
 %token <value> CONSTANT
-%token LE_OP GE_OP EQ_OP NE_OP AND_OP OR_OP
+%token LE_OP GE_OP EQ_OP NE_OP LSHIFT_OP RSHIFT_OP
 %token EXTERN INT VOID IF RETURN GOTO
 
-/* Types pour les non-terminaux (pour construire l'arbre) */
-%type <node> program external_declaration function_definition declaration 
-%type <node> compound_statement statement expression primary_expression jump_statement
-
 %right '='
-%left OR_OP
-%left AND_OP
-%left EQ_OP NE_OP
-%left '<' '>' LE_OP GE_OP
-%left '+' '-'
-%left '*' '/'
-%right UNARY
-%left POSTFIX '('
 
 %start program
 
 %%
 
-/* ===== Programme ===== */
-
-program
-    : external_declaration { racine_ast = ast_create_node(AST_PROGRAM); ast_add_child(racine_ast, $1); }
-    | program external_declaration { ast_add_child(racine_ast, $2); }
-    ;
-
-external_declaration
-    : function_definition { $$ = $1; }
-    | declaration         { $$ = $1; }
-    /* Ici tu peux ajouter les appels à tes fonctions francisées */
-    ;
-
-/* ===== Déclarations ===== */
-
-function_definition
-    : INT IDENTIFIER '(' ')' compound_statement 
-        { $$ = create_node(AST_FUNCTION_DEFINITION, create_id_leaf($2), $5); }
-    ;
-
-declaration
-    : INT IDENTIFIER ';' 
-        { $$ = create_id_leaf($2); }
-    ;
-
-compound_statement
-    : '{' '}' { $$ = ast_create_node(AST_COMPOUND_STATEMENT); }
-    | '{' statement '}' { $$ = ast_create_node(AST_COMPOUND_STATEMENT); ast_add_child($$, $2); }
-    ;
-
-statement
-    : expression ';' { $$ = $1; }
-    | jump_statement { $$ = $1; }
-    | compound_statement { $$ = $1; }
-    ;
-
-/* ===== Expressions ===== */
-
 primary_expression
-    : IDENTIFIER { $$ = create_id_leaf($1); }
-    | CONSTANT   { $$ = create_int_leaf($1); }
+    : IDENTIFIER
+    | CONSTANT
+    ;
+
+postfix_expression
+    : primary_expression
+    | postfix_expression '(' ')'
+    | postfix_expression '(' argument_expression_list ')'
+    ;
+
+argument_expression_list
+    : primary_expression
+    | argument_expression_list ',' primary_expression
+    ;
+
+unary_expression
+    : postfix_expression
+    | unary_operator primary_expression
+    ;
+
+unary_operator
+    : '&'
+    | '*'
+    | '-'
+    ;
+
+multiplicative_expression
+    : unary_expression
+    | primary_expression '*' primary_expression
+    | primary_expression '/' primary_expression
+    ;
+
+additive_expression
+    : multiplicative_expression
+    | primary_expression '+' primary_expression
+    | primary_expression '-' primary_expression
+    | primary_expression LSHIFT_OP primary_expression
+    | primary_expression RSHIFT_OP primary_expression
+    ;
+
+relational_expression
+    : additive_expression
+    | primary_expression '<' primary_expression
+    | primary_expression '>' primary_expression
+    | primary_expression LE_OP primary_expression
+    | primary_expression GE_OP primary_expression
+    ;
+
+equality_expression
+    : relational_expression
+    | primary_expression EQ_OP primary_expression
+    | primary_expression NE_OP primary_expression
     ;
 
 expression
-    : primary_expression { $$ = $1; }
-    | expression '+' expression { $$ = create_node(AST_OP, $1, $3); $$->id = strdup("+"); }
-    | expression '-' expression { $$ = create_node(AST_OP, $1, $3); $$->id = strdup("-"); }
-    | expression '*' expression { $$ = create_node(AST_OP, $1, $3); $$->id = strdup("*"); }
-    | expression '/' expression { $$ = create_node(AST_OP, $1, $3); $$->id = strdup("/"); }
-    | IDENTIFIER '=' expression { 
-        Ast_node *id_node = create_id_leaf($1);
-        $$ = create_node(AST_ASSIGNMENT, id_node, $3); 
-    }
-    | '(' expression ')' { $$ = $2; }
+    : equality_expression
+    | unary_operator primary_expression '=' primary_expression
+    | primary_expression '=' additive_expression
     ;
 
-/* ===== Instructions ===== */
+declaration
+    : declaration_specifiers declarator ';'
+    ;
+
+declaration_specifiers
+    : EXTERN type_specifier
+    | type_specifier
+    ;
+
+type_specifier
+    : VOID
+    | INT
+    ;
+
+declarator
+    : '*' direct_declarator
+    | direct_declarator
+    ;
+
+direct_declarator
+    : IDENTIFIER
+    | direct_declarator '(' parameter_list ')'
+    | direct_declarator '(' VOID ')'
+    | direct_declarator '(' ')'
+    ;
+
+parameter_list
+    : parameter_declaration
+    | parameter_list ',' parameter_declaration
+    ;
+
+parameter_declaration
+    : declaration_specifiers declarator
+    ;
+
+statement
+    : compound_statement
+    | labeled_statement
+    | expression_statement
+    | selection_statement
+    | jump_statement
+    ;
+
+compound_statement
+    : '{' '}'
+    | '{' statement_list '}'
+    | '{' declaration_list '}'
+    | '{' declaration_list statement_list '}'
+    ;
+
+declaration_list
+    : declaration
+    | declaration_list declaration
+    ;
+
+statement_list
+    : statement
+    | statement_list statement
+    ;
+
+labeled_statement
+    : IDENTIFIER ':' statement
+    ;
+
+expression_statement
+    : ';'
+    | expression ';'
+    ;
+
+selection_statement
+    : IF '(' equality_expression ')' GOTO IDENTIFIER ';'
+    ;
 
 jump_statement
-    : RETURN ';' { $$ = ast_create_node(AST_RETURN); }
-    | RETURN expression ';' { $$ = create_node(AST_RETURN, $2, NULL); }
-    | GOTO IDENTIFIER ';' { $$ = ast_create_node(AST_RETURN); $$->id = $2; }
+    : RETURN ';'
+    | RETURN expression ';'
+    | GOTO IDENTIFIER ';'
     ;
 
-/* Les autres règles suivent la même logique d'appel à create_node... */
+program
+    : external_declaration
+    | program external_declaration
+    ;
+
+external_declaration
+    : function_definition
+    | declaration
+    ;
+
+function_definition
+    : declaration_specifiers declarator compound_statement
+    ;
 
 %%
 
@@ -130,21 +197,8 @@ int main(int argc, char **argv)
         }
     }
 
-    printf("Début de l'analyse syntaxique...\n");
-
     if (yyparse() == 0) {
-        printf("\033[0;32mAnalyse syntaxique terminée : OK\033[0m\n");
-        
-        /* Une fois l'arbre construit, on génère le code */
-        if (racine_ast != NULL) {
-            FILE *f_sortie = fopen("output.c", "w");
-            if (f_sortie) {
-                printf("Génération du code intermédiaire...\n");
-                write_code(racine_ast, f_sortie);
-                fclose(f_sortie);
-                printf("Code généré dans 'output.c'\n");
-            }
-        }
+        printf("\033[0;32mAnalyse syntaxique backend : OK\033[0m\n");
     }
 
     if (argc > 1) fclose(yyin);

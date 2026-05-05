@@ -10,7 +10,7 @@
 
 %%
 
-"/*"([^*]|\*+[^*/])*\*+"/"  { /* Ignorer les commentaires */ }
+"/*"([^*]|\*+[^*/])*\*+"/"  { }
 
 "extern"  { return EXTERN; }
 "int"     { return INT; }
@@ -23,8 +23,8 @@
 ">="      { return GE_OP; }
 "=="      { return EQ_OP; }
 "!="      { return NE_OP; }
-"&&"      { return AND_OP; }
-"||"      { return OR_OP; }
+"<<"      { return LSHIFT_OP; }
+">>"      { return RSHIFT_OP; }
 
 [a-zA-Z_][a-zA-Z0-9_]*  { yylval.id = strdup(yytext); return IDENTIFIER; }
 
@@ -32,10 +32,11 @@
 
 [ \t\v\n\r\f]   { }
 
-"*"       { return '*'; }
-"/"       { return '/'; }
 "+"       { return '+'; }
 "-"       { return '-'; }
+"*"       { return '*'; }
+"/"       { return '/'; }
+"&"       { return '&'; }
 "<"       { return '<'; }
 ">"       { return '>'; }
 "="       { return '='; }
