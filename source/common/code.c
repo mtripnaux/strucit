@@ -205,6 +205,11 @@ static void analyser_programme(Ast_node *prog) {
                 gs->struct_name = strdup(ts->children[0]->id);
         }
         if (a_etoile(decl)) gs->pointer = true;
+        if (ts->type == AST_TYPE_SPECIFIER) {
+            // top_star = la fonction retourne un pointeur (ex: void *malloc(...))
+            int top_star = (decl && decl->type == AST_STAR_DECLARATOR);
+            if (!top_star) gs->type_name = strdup(ts->id);
+        }
         ajouter_symbole_enfant(g_global, gs);
     }
 }
@@ -418,7 +423,8 @@ static char *ecrire_expression(Ast_node *nd, FILE *f) {
         const char *sn = NULL;
         if (arg->type == AST_IDENTIFIER) {
             Symbol *s = chercher_variable(arg->id);
-            if (s) sn = s->struct_name;
+            // sizeof(pointeur) = 4 toujours ; sizeof(struct) = taille réelle
+            if (s && !s->pointer) sn = s->struct_name;
         }
         int sz = sn ? obtenir_taille_struct(sn) : 4;
         char *buf = malloc(16);
@@ -461,20 +467,40 @@ static char *ecrire_expression(Ast_node *nd, FILE *f) {
             argc = al->children_count;
         }
 
-        char *t = creer_temp("void *", NULL);
+        // Fonction void : pas de temp, appel direct
+        // type_name == "void" seulement si le retour est void pur (pas void *)
+        Symbol *fn_sym = chercher_variable(fname);
+        int returns_void = fn_sym &&
+                           fn_sym->type_name &&
+                           strcmp(fn_sym->type_name, "void") == 0;
+
         ecrire_indentation(f);
-        fprintf(f, "%s = %s(", t, fname);
+        if (returns_void) {
+            fprintf(f, "%s(", fname);
+        } else {
+            char *t = creer_temp("void *", NULL);
+            fprintf(f, "%s = %s(", t, fname);
+            for (int i = 0; i < argc; i++) {
+                if (i) fprintf(f, ", ");
+                fprintf(f, "%s", args[i]);
+            }
+            fprintf(f, ");\n");
+            for (int i = 0; i < argc; i++) free(args[i]);
+            free(args);
+            free(fname);
+            g_expr_sname = NULL;
+            return t;
+        }
         for (int i = 0; i < argc; i++) {
             if (i) fprintf(f, ", ");
             fprintf(f, "%s", args[i]);
         }
         fprintf(f, ");\n");
-
         for (int i = 0; i < argc; i++) free(args[i]);
         free(args);
         free(fname);
         g_expr_sname = NULL;
-        return t;
+        return strdup("0");
     }
 
     case AST_ASSIGNMENT: {   // affectation
