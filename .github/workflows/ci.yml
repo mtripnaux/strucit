@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: debian:bookworm
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y flex bison build-essential git
+      
+      - name: Build compiler
+        run: make clean && make && make backend
+      
+      - name: Run tests with validation
+        run: make test-validate
