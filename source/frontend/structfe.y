@@ -706,14 +706,14 @@ int main(int argc, char **argv)
     fprintf(stderr, "\033[0;34mCompilation commencee <3 ...\033[0m\n");
     sem_analyse(racine_ast);
     if (sem_errors > 0) {
-        fprintf(stderr, "\033[1;31mCompilation echouee: %d error(s)\033[0m\n", sem_errors);
+        fprintf(stderr, "\033[1;31m Compilation echouee: %d error(s)\033[0m\n", sem_errors);
         return 1;
     }
 
     FILE *out = stdout;
     if (argc >= 3) {
         out = fopen(argv[2], "w");
-        if (!out) { perror("Erreur création fichier sortie"); return 1; }
+        if (!out) { perror("Erreur creation fichier sortie"); return 1; }
     }
     write_code(racine_ast, out);
     if (out != stdout) fclose(out);
