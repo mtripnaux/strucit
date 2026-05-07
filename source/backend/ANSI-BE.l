@@ -29,7 +29,7 @@
 [a-zA-Z_][a-zA-Z0-9_]*  { yylval.id = strdup(yytext); return IDENTIFIER; }
 
 0|[1-9][0-9]*           { yylval.value = atoi(yytext); return CONSTANT; }
-
+ 
 [ \t\v\n\r\f]   { }
 
 "+"       { return '+'; }
