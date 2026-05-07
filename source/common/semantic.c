@@ -51,7 +51,7 @@ static Ast_node *premier_id(Ast_node *n)
 
 static void erreur(int ligne, const char *fmt, ...)
 {
-    va_list ap;
+    va_list ap; 
     fprintf(stderr, "\033[1;31mError:\033[0m ");
     va_start(ap, fmt);
     vfprintf(stderr, fmt, ap);
