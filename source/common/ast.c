@@ -1,5 +1,5 @@
 #include "ast.h"
-
+ 
 static Ast_node *alloc_node(Ast_type type) {
     Ast_node *n = malloc(sizeof(Ast_node));
     n->type = type;
