@@ -1,5 +1,5 @@
-#ifndef CODE_H
-#define CODE_H
+#ifndef CODEGEN_H
+#define CODEGEN_H
 
 #include <stdio.h>
 #include <stdlib.h>
