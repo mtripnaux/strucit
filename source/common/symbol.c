@@ -1,5 +1,5 @@
 #include "symbol.h"
-
+ 
 Symbol *creer_symbole(char *id, int taille, Symbol_type type) {
     Symbol *s = malloc(sizeof(Symbol));
     s->id = id ? strdup(id) : NULL;
