@@ -703,10 +703,10 @@ int main(int argc, char **argv)
     fclose(yyin);
 
     /* Analyse sémantique */
-    fprintf(stderr, "\033[0;34mStarting compilation...\033[0m\n");
+    fprintf(stderr, "\033[0;34mCompilation commencee <3 ...\033[0m\n");
     sem_analyse(racine_ast);
     if (sem_errors > 0) {
-        fprintf(stderr, "\033[1;31mCompilation failed: %d error(s)\033[0m\n", sem_errors);
+        fprintf(stderr, "\033[1;31mCompilation echouee: %d error(s)\033[0m\n", sem_errors);
         return 1;
     }
 
@@ -717,6 +717,6 @@ int main(int argc, char **argv)
     }
     write_code(racine_ast, out);
     if (out != stdout) fclose(out);
-    fprintf(stderr, "\033[0;34mCompilation finished :)\033[0m\n");
+    fprintf(stderr, "\033[0;34mCompilation finie <3.. \033[0m\n");
     return 0;
 }
