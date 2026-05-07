@@ -19,6 +19,7 @@ structit: directories $(FE_DIR)/structfe.tab.c $(FE_DIR)/lex.yy.c
 		$(COM_DIR)/ast.c \
 		$(COM_DIR)/symbol.c \
 		$(COM_DIR)/code.c \
+		$(COM_DIR)/semantic.c \
 		-o $(BIN_DIR)/structit $(LDFLAGS)
 
 $(FE_DIR)/structfe.tab.c $(FE_DIR)/structfe.tab.h: $(FE_DIR)/structfe.y
