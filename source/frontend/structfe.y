@@ -4,6 +4,7 @@
 #include <string.h>
 #include "ast.h"
 #include "code.h"
+#include "semantic.h"
 
 extern int yylineno;
 extern FILE *yyin;
@@ -701,6 +702,14 @@ int main(int argc, char **argv)
     if (yyparse() != 0) { fclose(yyin); return 1; }
     fclose(yyin);
 
+    /* Analyse sémantique */
+    fprintf(stderr, "\033[0;34mStarting compilation...\033[0m\n");
+    sem_analyse(racine_ast);
+    if (sem_errors > 0) {
+        fprintf(stderr, "\033[1;31mCompilation failed: %d error(s)\033[0m\n", sem_errors);
+        return 1;
+    }
+
     FILE *out = stdout;
     if (argc >= 3) {
         out = fopen(argv[2], "w");
@@ -708,5 +717,6 @@ int main(int argc, char **argv)
     }
     write_code(racine_ast, out);
     if (out != stdout) fclose(out);
+    fprintf(stderr, "\033[0;34mCompilation finished :)\033[0m\n");
     return 0;
 }
