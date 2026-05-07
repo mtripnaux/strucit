@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "code.h"
+#include "codegen.h"
 
 static int g_temp_compteur  = 0;              // Compteur de variables temp
 static int g_label_compteur = 0;              // Compteur de labels
