@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "ast.h"
-#include "code.h"
+#include "codegen.h"
 #include "semantic.h"
 
 extern int yylineno;
