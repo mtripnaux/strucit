@@ -11,7 +11,7 @@ static Symbol *g_global  = NULL;           // Table des symboles / noms (var, fu
 static Symbol *g_local   = NULL;           // Table des sybmoles locale (incluant param fonctions)
 
 #define MAX_TEMPS 512
-
+ 
 static char *g_temp_type [MAX_TEMPS];      // Types des variables temp
 static char *g_temp_sname[MAX_TEMPS];      // Nom de struct des temp
 
