@@ -139,7 +139,7 @@ type_specifier
 struct_specifier
     : STRUCT IDENTIFIER '{' struct_declaration_list '}'
     {
-        // Définition complète struct Foo { ... }
+        // Définition complete struct Foo { ... }
         $$ = ast_create_node(AST_STRUCT_DEFINITION);
         ast_add_child($$, $2);
         ast_add_child($$, $4);
@@ -251,21 +251,21 @@ function_definition
 compound_statement
     : '{' '}'
     {
-        $$ = ast_create_node(AST_COMPOUND_STATEMENT);
+        $$ = ast_create_node(AST_compOUND_STATEMENT);
     }
     | '{' declaration_list '}'
     {
-        $$ = ast_create_node(AST_COMPOUND_STATEMENT);
+        $$ = ast_create_node(AST_compOUND_STATEMENT);
         ast_add_child($$, $2);
     }
     | '{' statement_list '}'
     {
-        $$ = ast_create_node(AST_COMPOUND_STATEMENT);
+        $$ = ast_create_node(AST_compOUND_STATEMENT);
         ast_add_child($$, $2);
     }
     | '{' declaration_list statement_list '}'
     {
-        $$ = ast_create_node(AST_COMPOUND_STATEMENT);
+        $$ = ast_create_node(AST_compOUND_STATEMENT);
         ast_add_child($$, $2);
         ast_add_child($$, $3);
     }
@@ -703,10 +703,10 @@ int main(int argc, char **argv)
     fclose(yyin);
 
     /* Analyse sémantique */
-    fprintf(stderr, "\033[0;34mCompilation commencee <3 ...\033[0m\n");
+    fprintf(stderr, "\033[0;34m compilation commencee <3 ...\033[0m\n");
     sem_analyse(racine_ast);
     if (sem_errors > 0) {
-        fprintf(stderr, "\033[1;31m Compilation echouee: %d error(s)\033[0m\n", sem_errors);
+        fprintf(stderr, "\033[1;31m compilation echouee: %d error(s)\033[0m\n", sem_errors);
         return 1;
     }
 
@@ -717,6 +717,6 @@ int main(int argc, char **argv)
     }
     write_code(racine_ast, out);
     if (out != stdout) fclose(out);
-    fprintf(stderr, "\033[0;34mCompilation finie <3.. \033[0m\n");
+    fprintf(stderr, "\033[0;34m compilation finie <3.. \033[0m\n");
     return 0;
 }
