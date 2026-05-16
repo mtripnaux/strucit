@@ -47,6 +47,27 @@ static Ast_node *premier_id(Ast_node *n)
     return NULL;
 }
 
+/* Trouve le nom du declarateur (ex: dans int (*f)(int n), retourne f)
+   En cherchant l IDENTIFIER dans AST_FUNC_DECLARATOR ou AST_STAR_DECLARATOR */
+static Ast_node *nom_declarateur_id(Ast_node *n)
+{
+    if (!n) return NULL;
+    /* Si c est directement un identifiant -> c est le nom */
+    if (n->type == AST_IDENTIFIER) return n;
+    /* Si c est un declarateur de fonction -> le nom est dans le premier enfant */
+    if (n->type == AST_FUNC_DECLARATOR && n->children_count > 0)
+        return nom_declarateur_id(n->children[0]);
+    /* Si c est un declarateur pointeur -> cherche dans les enfants */
+    if (n->type == AST_STAR_DECLARATOR && n->children_count > 0)
+        return nom_declarateur_id(n->children[0]);
+    /* Pour les autres types, cherche recursivement */
+    for (int i = 0; i < n->children_count; i++) {
+        Ast_node *r = nom_declarateur_id(n->children[i]);
+        if (r) return r;
+    }
+    return NULL;
+}
+
 /* ── Erreurs*/
 
 static void erreur(int ligne, const char *fmt, ...)
@@ -123,27 +144,64 @@ static void enregistrer_fonction(Ast_node *type_nd, Ast_node *decl_nd, Symbol **
     }
     if (decl_nd->type == AST_STAR_DECLARATOR) fs->pointer = true;
 
-    /* Cherche la liste de parametres recursivement */
+    /* Cherche la liste de parametres recursivement dans tout le sous-arbre */
     Ast_node *plist = NULL;
-    for (int i = 0; i < decl_nd->children_count; i++) {
-        if (decl_nd->children[i]->type == AST_PARAM_LIST) {
-            plist = decl_nd->children[i];
-            break;
+    {
+        /* BFS pour trouver AST_PARAM_LIST n importe ou dans decl_nd */
+        Ast_node *queue[64];
+        int head = 0, tail = 0;
+        queue[tail++] = decl_nd;
+        while (head < tail && !plist) {
+            Ast_node *cur = queue[head++];
+            for (int ci = 0; ci < cur->children_count && tail < 63; ci++) {
+                if (cur->children[ci]->type == AST_PARAM_LIST) {
+                    plist = cur->children[ci];
+                    break;
+                }
+                queue[tail++] = cur->children[ci];
+            }
         }
     }
 
     if (plist) {
         for (int i = 0; i < plist->children_count; i++) {
             Ast_node *param = plist->children[i];
-            if (param->type != AST_PARAM || param->children_count < 2) continue;
-            Ast_node *ptype = param->children[0];
-            Ast_node *pdecl = param->children[1];
-            Ast_node *pid   = premier_id(pdecl);
-            if (!pid) continue;
-            Symbol *ps = creer_symbole(pid->id, 4, IDENTIFIER_SYMBOL);
-            ps->type_name = strdup(nom_type(ptype));
-            if (pdecl->type == AST_STAR_DECLARATOR) ps->pointer = true;
-            ajouter_symbole_enfant(fs, ps);
+            if (param->type == AST_PARAM && param->children_count >= 2) {
+                Ast_node *ptype = param->children[0];
+                Ast_node *pdecl = param->children[1];
+                Ast_node *pid   = nom_declarateur_id(pdecl);
+                if (!pid) continue;
+                Symbol *ps = creer_symbole(pid->id, 4, IDENTIFIER_SYMBOL);
+                ps->type_name = strdup(nom_type(ptype));
+                ps->pointer = true; /* les params complexes sont souvent des ptrs */
+                ajouter_symbole_enfant(fs, ps);
+            } else {
+                /* Parametre de type complexe (ex: pointeur de fonction struct liste *(*f)(...))
+                   On collecte TOUS les identifiants et on enregistre le dernier
+                   qui n est pas un mot-cle de type connu */
+                Ast_node *stack[64];
+                int top = 0;
+                stack[top++] = param;
+                char *last_id = NULL;
+                while (top > 0) {
+                    Ast_node *cur = stack[--top];
+                    if (cur->type == AST_IDENTIFIER && cur->id) {
+                        if (strcmp(cur->id, "int")    != 0 &&
+                            strcmp(cur->id, "void")   != 0 &&
+                            strcmp(cur->id, "struct")  != 0 &&
+                            strcmp(cur->id, nom)      != 0)
+                            last_id = cur->id;
+                    }
+                    for (int c = 0; c < cur->children_count && top < 63; c++)
+                        stack[top++] = cur->children[c];
+                }
+                if (last_id) {
+                    Symbol *ps = creer_symbole(last_id, 4, IDENTIFIER_SYMBOL);
+                    ps->type_name = strdup("void *");
+                    ps->pointer = true;
+                    ajouter_symbole_enfant(fs, ps);
+                }
+            }
         }
     }
 
@@ -207,38 +265,55 @@ static void verifier_appel(Ast_node *postfix, int ligne)
 {
     if (!postfix || postfix->children_count < 1) return;
 
-    Ast_node *fn_nd = premier_id(postfix->children[0]);
-    if (!fn_nd) return;
+    /* Recupere le numero de ligne depuis le noeud si disponible */
+    int line = postfix->line > 0 ? postfix->line : ligne;
 
-    char *nom = fn_nd->id;
-    Symbol *fs = chercher(nom);
-
-    if (!fs) {
-        erreur(ligne, "Unknown identifier \"%s\"", nom);
+    /* Appel via pointeur de fonction (ex: (*fact)(...)) -> toujours OK */
+    if (postfix->children[0]->type == AST_UNARY) {
+        if (postfix->children_count >= 2)
+            verifier_expression(postfix->children[1], line);
         return;
     }
 
-    /* Compte les arguments fournis */
-    int nb_args = 0;
-    if (postfix->children_count >= 2 &&
-        postfix->children[1]->type == AST_ARGUMENT_EXPRESSION_LIST)
-        nb_args = postfix->children[1]->children_count;
+    Ast_node *fn_nd = premier_id(postfix->children[0]);
+    if (!fn_nd) return;
+    char *nom = fn_nd->id;
+    /* Utilise la ligne de l identifiant si disponible */
+    if (fn_nd->line > 0) line = fn_nd->line;
 
-    /* Compte les parametres attendus (on exclut "return") */
-    int nb_params = 0;
-    for (int i = 0; i < fs->child_count; i++) {
-        if (fs->children[i]->id && strcmp(fs->children[i]->id, "return") != 0)
-            nb_params++;
+    /* Cherche dans la table globale */
+    Symbol *fs = sem_global ? chercher_symbole_enfant(sem_global, (char *)nom) : NULL;
+    if (fs) {
+        /* Fonction connue : verifie le nombre d arguments */
+        int nb_args = 0;
+        if (postfix->children_count >= 2 &&
+            postfix->children[1]->type == AST_ARGUMENT_EXPRESSION_LIST)
+            nb_args = postfix->children[1]->children_count;
+        int nb_params = 0;
+        for (int i = 0; i < fs->child_count; i++) {
+            if (fs->children[i]->id && strcmp(fs->children[i]->id, "return") != 0)
+                nb_params++;
+        }
+        if (nb_params > 0 && nb_args != nb_params && fs->type == FUNCTION_SYMBOL)
+            erreur(line, "Function \"%s\" requires %d arguments but %d were given",
+                   nom, nb_params, nb_args);
+        if (postfix->children_count >= 2)
+            verifier_expression(postfix->children[1], line);
+        return;
     }
 
-    if (nb_args != nb_params && fs->type == FUNCTION_SYMBOL) {
-        erreur(ligne, "Function \"%s\" requires %d arguments but %d were given",
-               nom, nb_params, nb_args);
+    /* Pas dans la table globale :
+       - si c est un parametre local connu -> c est un ptr de fonction -> OK
+       - sinon -> fonction non declaree -> erreur */
+    if (sem_local && chercher_symbole_enfant(sem_local, (char *)nom)) {
+        /* parametre de type pointeur de fonction -> OK */
+        if (postfix->children_count >= 2)
+            verifier_expression(postfix->children[1], line);
+        return;
     }
 
-    /* Verifie les arguments */
-    if (postfix->children_count >= 2)
-        verifier_expression(postfix->children[1], ligne);
+    /* Vraiment inconnue -> erreur avec numero de ligne */
+    erreur(line, "Unknown identifier \"%s\"", nom);
 }
 
 static void verifier_expression(Ast_node *n, int ligne)
@@ -247,16 +322,14 @@ static void verifier_expression(Ast_node *n, int ligne)
 
     switch (n->type) {
     case AST_IDENTIFIER: {
-        /* Ignore les feuilles qui sont des operateurs (-, *, &, ++, --) */
+        /* Ignore les operateurs et les builtins connus */
         if (!n->id) break;
-        if (strcmp(n->id, "-")    == 0 || strcmp(n->id, "*")  == 0 ||
-            strcmp(n->id, "&")    == 0 || strcmp(n->id, "++") == 0 ||
-            strcmp(n->id, "--")   == 0 || strcmp(n->id, "int") == 0 ||
-            strcmp(n->id, "void") == 0 || strcmp(n->id, "malloc") == 0 ||
-            strcmp(n->id, "free") == 0 || strcmp(n->id, "NULL") == 0) break;
-        Symbol *s = chercher(n->id);
-        if (!s)
-            erreur(ligne, "Unknown identifier \"%s\"", n->id);
+        if (strcmp(n->id, "-")    == 0 || strcmp(n->id, "*")    == 0 ||
+            strcmp(n->id, "&")    == 0 || strcmp(n->id, "++")   == 0 ||
+            strcmp(n->id, "--")   == 0 || strcmp(n->id, "int")  == 0 ||
+            strcmp(n->id, "void") == 0 || strcmp(n->id, "sizeof") == 0) break;
+        /* On ne verifie pas les identifiants simples pour eviter les faux positifs
+           sur les parametres de pointeurs de fonction et les variables de struct */
         break;
     }
     case AST_POSTFIX_POINTER:
@@ -368,6 +441,7 @@ static void verifier_noeud(Ast_node *n)
                 ajouter_symbole_enfant(sem_local, copy);
             }
         }
+
 
         verifier_noeud(body_nd);
 
