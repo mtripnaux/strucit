@@ -6,6 +6,7 @@ static Ast_node *alloc_node(Ast_type type) {
     n->id = NULL;
     n->value = 0;
     n->size = 0;
+    n->line = 0;
     n->parent = NULL;
     n->children = NULL;
     n->children_count = 0;
