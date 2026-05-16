@@ -19,12 +19,6 @@ void sem_init(void)
 }
 
 
-static Symbol *chercher(const char *nom)
-{
-    Symbol *s = sem_local  ? chercher_symbole_enfant(sem_local,  (char *)nom) : NULL;
-    if (!s) s = sem_global ? chercher_symbole_enfant(sem_global, (char *)nom) : NULL;
-    return s;
-}
 
 static const char *nom_type(Ast_node *n)
 {
@@ -73,7 +67,7 @@ static Ast_node *nom_declarateur_id(Ast_node *n)
 static void erreur(int ligne, const char *fmt, ...)
 {
     va_list ap; 
-    fprintf(stderr, "\033[1;31mError:\033[0m ");
+    fprintf(stderr, "\033[1;31mErreur:\033[0m ");
     va_start(ap, fmt);
     vfprintf(stderr, fmt, ap);
     va_end(ap);
@@ -313,7 +307,7 @@ static void verifier_appel(Ast_node *postfix, int ligne)
     }
 
     /* Vraiment inconnue -> erreur avec numero de ligne */
-    erreur(line, "Unknown identifier \"%s\"", nom);
+    erreur(line, "Identifiant inconnuuuu \"%s\"", nom);
 }
 
 static void verifier_expression(Ast_node *n, int ligne)
