@@ -46,6 +46,7 @@ typedef struct _Ast_node {
     char *id;                     
     int value;                   
     int size;                     
+    int line;                     /* numéro de ligne dans le source */
     struct _Ast_node *parent;     
     struct _Ast_node **children;  
     int children_count;           
