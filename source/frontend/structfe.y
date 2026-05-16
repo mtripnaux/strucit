@@ -251,21 +251,21 @@ function_definition
 compound_statement
     : '{' '}'
     {
-        $$ = ast_create_node(AST_compOUND_STATEMENT);
+        $$ = ast_create_node(AST_COMPOUND_STATEMENT);
     }
     | '{' declaration_list '}'
     {
-        $$ = ast_create_node(AST_compOUND_STATEMENT);
+        $$ = ast_create_node(AST_COMPOUND_STATEMENT);
         ast_add_child($$, $2);
     }
     | '{' statement_list '}'
     {
-        $$ = ast_create_node(AST_compOUND_STATEMENT);
+        $$ = ast_create_node(AST_COMPOUND_STATEMENT);
         ast_add_child($$, $2);
     }
     | '{' declaration_list statement_list '}'
     {
-        $$ = ast_create_node(AST_compOUND_STATEMENT);
+        $$ = ast_create_node(AST_COMPOUND_STATEMENT);
         ast_add_child($$, $2);
         ast_add_child($$, $3);
     }
@@ -430,11 +430,13 @@ postfix_expression
     | postfix_expression '(' ')'
     {
         $$ = ast_create_node(AST_POSTFIX);
+        $$->line = yylineno;
         ast_add_child($$, $1);
     }
     | postfix_expression '(' argument_expression_list ')'
     {
         $$ = ast_create_node(AST_POSTFIX);
+        $$->line = yylineno;
         ast_add_child($$, $1);
         ast_add_child($$, $3);
     }
