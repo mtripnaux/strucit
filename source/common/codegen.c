@@ -4,34 +4,57 @@
 #include <string.h>
 #include "codegen.h"
 
-static int g_temp_compteur  = 0;              // Compteur de variables temp
+static int g_temp_compteur  = 0;              // Nombre total de temporaires alloués
 static int g_label_compteur = 0;              // Compteur de labels
-static int g_indentation      = 0;              // Niveau d'indent 
-static Symbol *g_global  = NULL;           // Table des symboles / noms (var, functions, struct) globales
-static Symbol *g_local   = NULL;           // Table des sybmoles locale (incluant param fonctions)
+static int g_indentation    = 0;              // Niveau d'indent
+static Symbol *g_global     = NULL;           // Table des symboles globales
+static Symbol *g_local      = NULL;           // Table des symboles locales
 
 #define MAX_TEMPS 512
- 
-static char *g_temp_type [MAX_TEMPS];      // Types des variables temp
-static char *g_temp_sname[MAX_TEMPS];      // Nom de struct des temp
 
-static const char *g_expr_sname = NULL;    // Nom de struct de la dernière expr évaluée
+static char *g_temp_type [MAX_TEMPS];         // Types des variables temp
+static char *g_temp_sname[MAX_TEMPS];         // Nom de struct des temp
+static int   g_temp_used [MAX_TEMPS];         // 1 = en cours d'utilisation
 
-// Indente dans le fichier (un \t)
+static const char *g_expr_sname = NULL;
+
 void ecrire_indentation(FILE *f) {
     for (int i = 0; i < g_indentation; i++) fputc('\t', f);
 }
 
-// Crée variable temp (_ti) avec son type et struct_name
+// Alloue un temporaire libre ou en crée un nouveau — réutilise si possible
 static char *creer_temp(const char *type, const char *sname) {
-    int n = ++g_temp_compteur;
-    if (n - 1 < MAX_TEMPS) {
-        g_temp_type [n-1] = strdup(type);
-        g_temp_sname[n-1] = sname ? strdup(sname) : NULL;
+    // Cherche un temporaire libre du bon type
+    for (int i = 0; i < g_temp_compteur && i < MAX_TEMPS; i++) {
+        if (!g_temp_used[i] &&
+            g_temp_type[i] && strcmp(g_temp_type[i], type) == 0) {
+            g_temp_used[i] = 1;
+            if (g_temp_sname[i]) { free(g_temp_sname[i]); g_temp_sname[i] = NULL; }
+            if (sname) g_temp_sname[i] = strdup(sname);
+            char *buf = malloc(16);
+            snprintf(buf, 16, "_temp_%d", i);
+            return buf;
+        }
     }
+    // Sinon crée un nouveau
+    int n = g_temp_compteur;
+    if (n < MAX_TEMPS) {
+        g_temp_type [n] = strdup(type);
+        g_temp_sname[n] = sname ? strdup(sname) : NULL;
+        g_temp_used [n] = 1;
+    }
+    g_temp_compteur++;
     char *buf = malloc(16);
-    snprintf(buf, 16, "_t%d", n);
+    snprintf(buf, 16, "_temp_%d", n);
     return buf;
+}
+
+// Libère un temporaire pour réutilisation
+static void liberer_temp(const char *name) {
+    if (!name || strncmp(name, "_temp_", 6) != 0) return;
+    int idx = atoi(name + 6);
+    if (idx >= 0 && idx < g_temp_compteur && idx < MAX_TEMPS)
+        g_temp_used[idx] = 0;
 }
 
 // Crée label suivant (Li)
@@ -78,12 +101,12 @@ static int obtenir_offset_champ(const char *sname, const char *field, char **fsn
 // Donne le struct_name d'une variable
 static const char *nom_struct_variable(const char *var) {
     if (!var) return NULL;
-    if (var[0] == '_' && var[1] == 't') {  // si temp, lookup g_temp_sname
-        int idx = atoi(var + 2) - 1;
+    if (strncmp(var, "_temp_", 6) == 0) {
+        int idx = atoi(var + 6);
         if (idx >= 0 && idx < g_temp_compteur && idx < MAX_TEMPS)
             return g_temp_sname[idx];
     }
-    Symbol *s = chercher_variable(var); // sinon lookup g_local puis g_global
+    Symbol *s = chercher_variable(var);
     return s ? s->struct_name : NULL;
 }
 
@@ -272,9 +295,21 @@ static void ecrire_condition(Ast_node *cond, int lbl, int jump_if_true, FILE *f)
     if (cond->type == AST_BOOL_OP && cond->children_count >= 2) {
         char *l = ecrire_expression(cond->children[0], f);
         char *r = ecrire_expression(cond->children[1], f);
+        /* Le backend n'accepte pas les constantes negatives dans les conditions */
+        if (l && l[0] == '-' && l[1] != '_') {
+            char *t = creer_temp("int", NULL);
+            ecrire_indentation(f); fprintf(f, "%s = %s;\n", t, l);
+            free(l); l = t;
+        }
+        if (r && r[0] == '-' && r[1] != '_') {
+            char *t = creer_temp("int", NULL);
+            ecrire_indentation(f); fprintf(f, "%s = %s;\n", t, r);
+            free(r); r = t;
+        }
         const char *op = jump_if_true ? cond->id : inverser_operateur(cond->id);
         ecrire_indentation(f);
         fprintf(f, "if (%s %s %s) goto L%d;\n", l, op, r, lbl);
+        liberer_temp(l); liberer_temp(r);
         free(l); free(r);
         return;
     }
@@ -345,6 +380,7 @@ static char *ecrire_expression(Ast_node *nd, FILE *f) {
         char *t = creer_temp("int", NULL);
         ecrire_indentation(f);
         fprintf(f, "%s = %s %s %s;\n", t, l, nd->id, r);
+        liberer_temp(l); liberer_temp(r);
         free(l); free(r);
         g_expr_sname = NULL;
         return t;
@@ -365,6 +401,7 @@ static char *ecrire_expression(Ast_node *nd, FILE *f) {
         char *t = creer_temp("int", NULL);
         ecrire_indentation(f);
         fprintf(f, "%s = (%s %s %s) ? 1 : 0;\n", t, l, nd->id, r);
+        liberer_temp(l); liberer_temp(r);
         free(l); free(r);
         g_expr_sname = NULL;
         return t;
@@ -388,6 +425,13 @@ static char *ecrire_expression(Ast_node *nd, FILE *f) {
         Ast_node *operand = nd->children[1];
 
         if (strcmp(op, "-") == 0) {
+            /* Optimisation : -constante -> directement "-N" sans temporaire */
+            if (operand->type == AST_CONSTANT) {
+                g_expr_sname = NULL;
+                char *buf = malloc(32);
+                snprintf(buf, 32, "-%d", operand->value);
+                return buf;
+            }
             char *v = ecrire_expression(operand, f);
             char *t = creer_temp("int", NULL);
             ecrire_indentation(f); fprintf(f, "%s = -%s;\n", t, v);
@@ -467,37 +511,38 @@ static char *ecrire_expression(Ast_node *nd, FILE *f) {
             argc = al->children_count;
         }
 
-        // Fonction void : pas de temp, appel direct
-        // type_name == "void" seulement si le retour est void pur (pas void *)
+        // Fonction void ou retour non utilisé : appel direct sans temp
         Symbol *fn_sym = chercher_variable(fname);
         int returns_void = fn_sym &&
                            fn_sym->type_name &&
                            strcmp(fn_sym->type_name, "void") == 0;
 
+        // Détermine le type de retour
+        const char *ret_type = "int";
+        if (fn_sym) {
+            if (fn_sym->pointer) ret_type = "void *";
+            else if (fn_sym->type_name) ret_type = fn_sym->type_name;
+        }
+
         ecrire_indentation(f);
-        if (returns_void) {
-            fprintf(f, "%s(", fname);
-        } else {
-            char *t = creer_temp("void *", NULL);
+        char *t = NULL;
+        if (!returns_void) {
+            t = creer_temp(ret_type, NULL);
             fprintf(f, "%s = %s(", t, fname);
-            for (int i = 0; i < argc; i++) {
-                if (i) fprintf(f, ", ");
-                fprintf(f, "%s", args[i]);
-            }
-            fprintf(f, ");\n");
-            for (int i = 0; i < argc; i++) free(args[i]);
-            free(args);
-            free(fname);
-            g_expr_sname = NULL;
-            return t;
+        } else {
+            fprintf(f, "%s(", fname);
         }
         for (int i = 0; i < argc; i++) {
             if (i) fprintf(f, ", ");
             fprintf(f, "%s", args[i]);
         }
         fprintf(f, ");\n");
-        for (int i = 0; i < argc; i++) free(args[i]);
+        for (int i = 0; i < argc; i++) { liberer_temp(args[i]); free(args[i]); }
         free(args);
+        free(fname);
+        g_expr_sname = NULL;
+        if (!returns_void) return t;
+        return strdup("0");
         free(fname);
         g_expr_sname = NULL;
         return strdup("0");
@@ -571,8 +616,49 @@ static void ecrire_instruction(Ast_node *nd, FILE *f) {
 
     case AST_EXPRESSION_STATEMENT: 
         if (nd->children_count > 0) {
-            char *v = ecrire_expression(nd->children[0], f);
-            free(v);
+            Ast_node *expr = nd->children[0];
+            /* Appel de fonction comme instruction : on ecrit directement sans temporaire de retour */
+            if (expr->type == AST_POSTFIX && expr->children_count >= 1 &&
+                (expr->children_count == 1 ||
+                 (expr->children_count >= 2 &&
+                  expr->children[1]->type == AST_ARGUMENT_EXPRESSION_LIST))) {
+                Ast_node *fn_node = expr->children[0];
+                char *fname = strdup(fn_node->type == AST_IDENTIFIER ? fn_node->id : "");
+                char **args = NULL;
+                int argc = 0;
+                if (expr->children_count >= 2 &&
+                    expr->children[1]->type == AST_ARGUMENT_EXPRESSION_LIST) {
+                    Ast_node *al = expr->children[1];
+                    args = malloc(sizeof(char *) * al->children_count);
+                    for (int i = 0; i < al->children_count; i++) {
+                        char *av = ecrire_expression(al->children[i], f);
+                        /* Si l'argument commence par '-' (constante negative), le mettre dans un temp */
+                        if (av && av[0] == '-' && av[1] != '_') {
+                            char *t = creer_temp("int", NULL);
+                            ecrire_indentation(f);
+                            fprintf(f, "%s = %s;\n", t, av);
+                            free(av);
+                            av = t;
+                        }
+                        args[i] = av;
+                    }
+                    argc = al->children_count;
+                }
+                ecrire_indentation(f);
+                fprintf(f, "%s(", fname);
+                for (int i = 0; i < argc; i++) {
+                    if (i) fprintf(f, ", ");
+                    fprintf(f, "%s", args[i]);
+                }
+                fprintf(f, ");\n");
+                for (int i = 0; i < argc; i++) { liberer_temp(args[i]); free(args[i]); }
+                free(args);
+                free(fname);
+            } else {
+                char *v = ecrire_expression(expr, f);
+                liberer_temp(v);
+                free(v);
+            }
         }
         break;
 
@@ -673,7 +759,11 @@ static void ecrire_fonction(Ast_node *nd, FILE *f) {
 
     // reset et init le corps dans buffer
     g_temp_compteur = 0;
-    for (int i = 0; i < MAX_TEMPS; i++) { g_temp_type[i] = NULL; g_temp_sname[i] = NULL; }
+    for (int i = 0; i < MAX_TEMPS; i++) {
+        g_temp_type [i] = NULL;
+        g_temp_sname[i] = NULL;
+        g_temp_used [i] = 0;
+    }
 
     char *body_buf = NULL;
     size_t body_size = 0;
@@ -709,8 +799,8 @@ static void ecrire_fonction(Ast_node *nd, FILE *f) {
 
     // Déclarer les variables temp
     for (int i = 0; i < g_temp_compteur && i < MAX_TEMPS; i++) {
-        const char *tt = g_temp_type[i] ? g_temp_type[i] : "void *";
-        fprintf(f, "\t%s _t%d;\n", tt, i + 1);
+        const char *tt = g_temp_type[i] ? g_temp_type[i] : "int";
+        fprintf(f, "\t%s _temp_%d;\n", tt, i);
     }
 
     if (body_buf) { fputs(body_buf, f); free(body_buf); }
