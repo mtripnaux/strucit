@@ -198,7 +198,7 @@ int main(int argc, char **argv)
     }
 
     if (yyparse() == 0) {
-        printf("\033[0;32mAnalyse syntaxique backend : OK\033[0m\n");
+        printf("\033[0;35mAnalyse syntaxique perfecto\033[0m\n");
     }
 
     if (argc > 1) fclose(yyin);
