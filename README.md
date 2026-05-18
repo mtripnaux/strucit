@@ -47,7 +47,7 @@ mkdir -p output
 ```
 
 Le compilateur affiche :
-- `compilation commencée<3` début de la compilation
+- `compilation commencee<3` début de la compilation
 - `Compilation finie<3`  succès
 - Les erreurs sémantiques détectées le cas échéant
 
@@ -59,7 +59,7 @@ Le compilateur affiche :
 
 Si le fichier est valide, le programme affiche :
 ```
-Analyse syntaxique parfait
+Analyse syntaxique perfecto
 ```
 
 ---
