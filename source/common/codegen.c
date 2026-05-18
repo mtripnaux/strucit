@@ -435,7 +435,7 @@ static char *ecrire_expression(Ast_node *nd, FILE *f) {
             char *v = ecrire_expression(operand, f);
             char *t = creer_temp("int", NULL);
             ecrire_indentation(f); fprintf(f, "%s = -%s;\n", t, v);
-            free(v);
+            liberer_temp(v); free(v);
             g_expr_sname = NULL;
             return t;
         }
@@ -443,6 +443,7 @@ static char *ecrire_expression(Ast_node *nd, FILE *f) {
             char *v = ecrire_expression(operand, f);
             char *t = creer_temp("void *", NULL);
             ecrire_indentation(f); fprintf(f, "%s = &%s;\n", t, v);
+            /* Ne pas libérer v : t contient son adresse, réutiliser v serait incorrect */
             free(v);
             g_expr_sname = NULL;
             return t;
@@ -452,7 +453,7 @@ static char *ecrire_expression(Ast_node *nd, FILE *f) {
             const char *sn = g_expr_sname;
             char *t = creer_temp("void *", sn);
             ecrire_indentation(f); fprintf(f, "%s = *%s;\n", t, v);
-            free(v);
+            liberer_temp(v); free(v);
             g_expr_sname = sn ? sn : NULL;
             return t;
         }
@@ -487,10 +488,11 @@ static char *ecrire_expression(Ast_node *nd, FILE *f) {
         char *addr = creer_temp("void *", NULL);
         ecrire_indentation(f); fprintf(f, "%s = %s + %d;\n", addr, ptr, off);
 
-        char *val = creer_temp(fsname ? "void *" : "void *", fsname);
+        char *val = creer_temp("void *", fsname);
         ecrire_indentation(f); fprintf(f, "%s = *%s;\n", val, addr);
 
-        free(ptr);
+        liberer_temp(addr); free(addr);
+        liberer_temp(ptr); free(ptr);
         g_expr_sname = fsname;
         return val;
     }
@@ -543,9 +545,6 @@ static char *ecrire_expression(Ast_node *nd, FILE *f) {
         g_expr_sname = NULL;
         if (!returns_void) return t;
         return strdup("0");
-        free(fname);
-        g_expr_sname = NULL;
-        return strdup("0");
     }
 
     case AST_ASSIGNMENT: {   // affectation
@@ -565,7 +564,7 @@ static char *ecrire_expression(Ast_node *nd, FILE *f) {
             }
             g_expr_sname = sn_rhs;
             char *ret = strdup(lhs->id);
-            free(rval);
+            liberer_temp(rval); free(rval);
             return ret;
         }
 
@@ -575,7 +574,7 @@ static char *ecrire_expression(Ast_node *nd, FILE *f) {
             char *addr = ecrire_expression(lhs->children[1], f);
             ecrire_indentation(f);
             fprintf(f, "*%s = %s;\n", addr, rval);
-            free(addr);
+            liberer_temp(addr); free(addr);
             g_expr_sname = NULL;
             char *ret = strdup(rval);
             free(rval); free(sn_rhs);
@@ -591,7 +590,8 @@ static char *ecrire_expression(Ast_node *nd, FILE *f) {
             char *addr = creer_temp("void *", NULL);
             ecrire_indentation(f); fprintf(f, "%s = %s + %d;\n", addr, ptr, off);
             ecrire_indentation(f); fprintf(f, "*%s = %s;\n", addr, rval);
-            free(ptr);
+            liberer_temp(addr); free(addr);
+            liberer_temp(ptr); free(ptr);
             g_expr_sname = NULL;
             char *ret = strdup(rval);
             free(rval); free(sn_rhs);

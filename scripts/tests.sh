@@ -15,55 +15,71 @@ BIN="./bin/structit"
 OUTPUT_DIR="output"
 mkdir -p "$OUTPUT_DIR"
 
-TESTS=(
+TESTS_OK=(
     "add.c" "sub.c" "mul.c" "div.c" "neg.c"
     "variables.c" "expr.c" "loops.c" "cond.c"
-    "functions.c" "pointeur.c" "listes.c" "compteur.c"
+    "functions.c" "listes.c" "compteur.c"
+)
+
+TESTS_FAIL=(
+    "pointeur.c"
+    "err_increment.c"
+    "err_args.c"
+    "err_undeclared.c"
 )
 
 FAILED=0
 
-for test in "${TESTS[@]}"; do
+for test in "${TESTS_OK[@]}"; do
     TEST_FILE="$TEST_DIR/$test"
     BASE_NAME="${test%.c}"
     OUTPUT_FILE="$OUTPUT_DIR/${BASE_NAME}_3.c"
 
     if [ ! -f "$TEST_FILE" ]; then
-        if [ $PRINT_DETAILS = true ]; then
-            echo "SKIP $test"
-        fi
+        echo "SKIP $test (fichier manquant)"
         ((FAILED++))
         continue
     fi
-    
-    if $BIN "$TEST_FILE" > "$OUTPUT_FILE" 2>&1; then
-        if [ $PRINT_DETAILS = true ]; then
-            echo "FRONT SUCC $test"
-        fi
+
+    if $BIN "$TEST_FILE" "$OUTPUT_FILE" > /dev/null 2>&1; then
+        [ $PRINT_DETAILS = true ] && echo "OK   $test"
     else
-        if [ $PRINT_DETAILS = true ]; then
-            echo "FRONT FAIL $test"
-        fi
+        echo "FAIL $test (devrait passer)"
         ((FAILED++))
     fi
 
-    if [ $VALIDATE_BACKEND = true ]; then
-        if ./bin/structit_backend "$OUTPUT_FILE" > /dev/null 2>&1; then
-            if [ $PRINT_DETAILS = true ]; then
-                echo "BACK SUCC $test"
-            fi
+    if [ $VALIDATE_BACKEND = true ] && [ -f "$OUTPUT_FILE" ]; then
+        if ./bin/structit_backend < "$OUTPUT_FILE" > /dev/null 2>&1; then
+            [ $PRINT_DETAILS = true ] && echo "OK   $test (backend)"
         else
-            if [ $PRINT_DETAILS = true ]; then
-                echo "BACK FAIL $test"
-            fi
+            echo "FAIL $test (backend)"
             ((FAILED++))
         fi
     fi
+done
 
+for test in "${TESTS_FAIL[@]}"; do
+    TEST_FILE="$TEST_DIR/$test"
+    OUTPUT_FILE="/dev/null"
+
+    if [ ! -f "$TEST_FILE" ]; then
+        echo "SKIP $test (fichier manquant)"
+        ((FAILED++))
+        continue
+    fi
+
+    if $BIN "$TEST_FILE" "$OUTPUT_FILE" > /dev/null 2>&1; then
+        echo "FAIL $test (devrait échouer)"
+        ((FAILED++))
+    else
+        [ $PRINT_DETAILS = true ] && echo "OK   $test (erreur attendue)"
+    fi
 done
 
 if [ $FAILED -eq 0 ]; then
+    echo "Tous les tests passent."
     exit 0
 else
+    echo "$FAILED test(s) échoué(s)."
     exit 1
 fi

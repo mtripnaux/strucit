@@ -21,4 +21,4 @@ jobs:
         run: make clean && make && make backend
       
       - name: Run tests with validation
-        run: make test-validate
+        run: ./scripts/tests.sh --validate --verbose
