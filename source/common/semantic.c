@@ -332,11 +332,7 @@ static void verifier_expression(Ast_node *n, int ligne)
             verifier_expression(n->children[0], ligne);
         break;
     case AST_UNARY:
-        if (n->children_count >= 1 && n->children[0]->type == AST_IDENTIFIER &&
-            (strcmp(n->children[0]->id, "++") == 0 || strcmp(n->children[0]->id, "--") == 0))
-            erreur(n->line > 0 ? n->line : ligne,
-                   "Operateur non supporte '%s'", n->children[0]->id);
-        else if (n->children_count >= 2)
+        if (n->children_count >= 2)
             verifier_expression(n->children[1], ligne);
         else if (n->children_count == 1)
             verifier_expression(n->children[0], ligne);
@@ -344,11 +340,7 @@ static void verifier_expression(Ast_node *n, int ligne)
     case AST_POSTFIX:
         if (n->children_count >= 1) {
             Ast_node *second = (n->children_count >= 2) ? n->children[1] : NULL;
-            if (second && second->type == AST_IDENTIFIER &&
-                (strcmp(second->id, "++") == 0 || strcmp(second->id, "--") == 0))
-                erreur(n->line > 0 ? n->line : ligne,
-                       "Operateur non supporte '%s'", second->id);
-            else if (second && second->type == AST_ARGUMENT_EXPRESSION_LIST)
+            if (second && second->type == AST_ARGUMENT_EXPRESSION_LIST)
                 verifier_appel(n, ligne);
             else if (second == NULL)
                 verifier_appel(n, ligne);

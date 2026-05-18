@@ -1,4 +1,5 @@
 extern int printd( int i );
+extern void *malloc(int n);
 
 int main() {
    int *i;

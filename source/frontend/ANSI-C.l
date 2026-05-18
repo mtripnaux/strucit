@@ -38,10 +38,6 @@ comment \/\*([^*]|\*+[^/*])*\*+\/
 "=="            { return EQ_OP; }
 "!="            { return NE_OP; }
 "->"            { return PTR_OP; }
-"<<"            { return LSHIFT_OP; }
-">>"            { return RSHIFT_OP; }
-"++"            { return INC_OP; }
-"--"            { return DEC_OP; }
 
 {const}         { yylval.node = create_int_leaf(atoi(yytext)); yylval.node->line = yylineno; return CONSTANT; }
 {id}            { yylval.node = create_id_leaf(strdup(yytext)); yylval.node->line = yylineno; return IDENTIFIER; }

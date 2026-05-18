@@ -25,7 +25,6 @@ void yyerror(const char *s) {
 %token <node> IDENTIFIER CONSTANT
 %token SIZEOF PTR_OP
 %token LE_OP GE_OP EQ_OP NE_OP AND_OP OR_OP
-%token LSHIFT_OP RSHIFT_OP INC_OP DEC_OP
 %token EXTERN INT VOID STRUCT IF ELSE WHILE FOR RETURN
 
 %type <node> program external_declaration
@@ -38,7 +37,7 @@ void yyerror(const char *s) {
 %type <node> expression_statement jump_statement
 %type <node> primary_expression postfix_expression unary_expression unary_operator
 %type <node> multiplicative_expression additive_expression
-%type <node> shift_expression relational_expression equality_expression
+%type <node> relational_expression equality_expression
 %type <node> logical_and_expression logical_or_expression
 %type <node> expression
 %type <node> argument_expression_list
@@ -48,7 +47,6 @@ void yyerror(const char *s) {
 %left AND_OP
 %left EQ_OP NE_OP
 %left '<' '>' LE_OP GE_OP
-%left LSHIFT_OP RSHIFT_OP
 %left '+' '-'
 %left '*' '/'
 %right UMINUS
@@ -440,23 +438,17 @@ postfix_expression
         ast_add_child($$, $1);
         ast_add_child($$, $3);
     }
-    | postfix_expression PTR_OP IDENTIFIER
+    | postfix_expression '.' IDENTIFIER
     {
         $$ = ast_create_node(AST_POSTFIX_POINTER);
         ast_add_child($$, $1);
         ast_add_child($$, $3);
     }
-    | postfix_expression INC_OP
+    | postfix_expression PTR_OP IDENTIFIER
     {
-        $$ = ast_create_node(AST_POSTFIX);
+        $$ = ast_create_node(AST_POSTFIX_POINTER);
         ast_add_child($$, $1);
-        ast_add_child($$, create_id_leaf("++"));
-    }
-    | postfix_expression DEC_OP
-    {
-        $$ = ast_create_node(AST_POSTFIX);
-        ast_add_child($$, $1);
-        ast_add_child($$, create_id_leaf("--"));
+        ast_add_child($$, $3);
     }
     ;
 
@@ -486,18 +478,6 @@ unary_expression
     {
         $$ = ast_create_node(AST_UNARY_SIZEOF);
         ast_add_child($$, create_id_leaf("void"));
-    }
-    | INC_OP unary_expression
-    {
-        $$ = ast_create_node(AST_UNARY);
-        ast_add_child($$, create_id_leaf("++"));
-        ast_add_child($$, $2);
-    }
-    | DEC_OP unary_expression
-    {
-        $$ = ast_create_node(AST_UNARY);
-        ast_add_child($$, create_id_leaf("--"));
-        ast_add_child($$, $2);
     }
     ;
 
@@ -559,54 +539,33 @@ additive_expression
     }
     ;
 
-shift_expression
+relational_expression
     : additive_expression
     {
         $$ = $1;
     }
-    | shift_expression LSHIFT_OP additive_expression
-    {
-        $$ = ast_create_node(AST_OP);
-        $$->id = strdup("<<");
-        ast_add_child($$, $1);
-        ast_add_child($$, $3);
-    }
-    | shift_expression RSHIFT_OP additive_expression
-    {
-        $$ = ast_create_node(AST_OP);
-        $$->id = strdup(">>");
-        ast_add_child($$, $1);
-        ast_add_child($$, $3);
-    }
-    ;
-
-relational_expression
-    : shift_expression
-    {
-        $$ = $1;
-    }
-    | relational_expression '<' shift_expression
+    | relational_expression '<' additive_expression
     {
         $$ = ast_create_node(AST_BOOL_OP);
         $$->id = strdup("<");
         ast_add_child($$, $1);
         ast_add_child($$, $3);
     }
-    | relational_expression '>' shift_expression
+    | relational_expression '>' additive_expression
     {
         $$ = ast_create_node(AST_BOOL_OP);
         $$->id = strdup(">");
         ast_add_child($$, $1);
         ast_add_child($$, $3);
     }
-    | relational_expression LE_OP shift_expression
+    | relational_expression LE_OP additive_expression
     {
         $$ = ast_create_node(AST_BOOL_OP);
         $$->id = strdup("<=");
         ast_add_child($$, $1);
         ast_add_child($$, $3);
     }
-    | relational_expression GE_OP shift_expression
+    | relational_expression GE_OP additive_expression
     {
         $$ = ast_create_node(AST_BOOL_OP);
         $$->id = strdup(">=");

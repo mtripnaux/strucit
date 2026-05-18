@@ -22,7 +22,7 @@ void yyerror(const char *s) {
 
 %token <id>    IDENTIFIER
 %token <value> CONSTANT
-%token LE_OP GE_OP EQ_OP NE_OP LSHIFT_OP RSHIFT_OP
+%token LE_OP GE_OP EQ_OP NE_OP
 %token EXTERN INT VOID IF RETURN GOTO
 
 %right '='
@@ -68,8 +68,6 @@ additive_expression
     : multiplicative_expression
     | primary_expression '+' primary_expression
     | primary_expression '-' primary_expression
-    | primary_expression LSHIFT_OP primary_expression
-    | primary_expression RSHIFT_OP primary_expression
     ;
 
 relational_expression

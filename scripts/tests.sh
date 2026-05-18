@@ -17,11 +17,12 @@ mkdir -p "$OUTPUT_DIR"
 
 TESTS_OK=(
     "add.c" "sub.c" "mul.c" "div.c" "neg.c"
-    "variables.c" "expr.c" "loops.c" "cond.c"
-    "functions.c" "listes.c" "compteur.c"
+    "variables.c" "loops.c" "cond.c"
+    "functions.c" "listes.c" "compteur.c" "ptr.c"
 )
 
 TESTS_FAIL=(
+    "expr.c"
     "pointeur.c"
     "err_increment.c"
     "err_args.c"
