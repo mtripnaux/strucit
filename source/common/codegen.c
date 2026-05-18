@@ -858,12 +858,12 @@ void write_code(Ast_node *prog, FILE *f) {
 }
 
 void print_error(Symbol *s, char *id, int line) {
-    fprintf(stderr, "\033[1;31mErreur : '%s' déjà déclaré (ligne %d)\033[0m\n", id, line);
+    fprintf(stderr, "\033[1;31mErreur : '%s' deja declaree (ligne %d)\033[0m\n", id, line);
     (void)s;
 }
 
 void print_warning(Symbol *s, char *id, int line) {
-    fprintf(stderr, "\033[1;35mAvertissement : redéfinition de '%s' (ligne %d)\033[0m\n", id, line);
+    fprintf(stderr, "\033[1;35mAvertissement : redefinition de '%s' (ligne %d)\033[0m\n", id, line);
     (void)s;
 }
 
