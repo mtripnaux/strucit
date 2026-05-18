@@ -1,17 +1,17 @@
-# Mini Compilateur C — STRUCIT
+# Mini Compilateur C: STRUCIT
 
-## Presentation
+## Présentation
 
-Ce projet est un mini compilateur qui traduit du code C simplifie (**STRUCIT-frontend**) vers un langage intermediaire de type assembleur (**STRUCIT-backend**), en generant du code a trois adresses.
+Ce projet est un mini compilateur qui traduit du code C simplifié (**STRUCIT-frontend**) vers un langage intermédiaire de type assembleur (**STRUCIT-backend**), en générant du code à trois adresses.
 
 Le compilateur effectue trois phases :
 - **Analyse lexicale** : reconnaissance des tokens (flex)
 - **Analyse syntaxique** : verification de la grammaire (bison)
-- **Analyse semantique** : verification des types, variables declarees, arguments de fonctions
+- **Analyse sémantique** : vérification des types, variables déclarées, arguments de fonctions
 
 ---
 
-## Prerequis
+## Prérequis
 
 ```bash
 sudo apt-get install flex bison gcc
@@ -25,7 +25,7 @@ sudo apt-get install flex bison gcc
 make && make backend
 ```
 
-**Nettoyer les fichiers generes :**
+**Nettoyer les fichiers générés :**
 ```bash
 make clean
 ```
@@ -47,9 +47,9 @@ mkdir -p output
 ```
 
 Le compilateur affiche :
-- `compilation commencee<3` debut de la compilation
-- `Compilation finie<3`  succes
-- Les erreurs semantiques detectees le cas echeant
+- `compilation commencée<3` début de la compilation
+- `Compilation finie<3`  succès
+- Les erreurs sémantiques détectées le cas échéant
 
 ### Verifier le fichier backend genere
 
@@ -59,7 +59,7 @@ Le compilateur affiche :
 
 Si le fichier est valide, le programme affiche :
 ```
-Analyse syntaxique perfecto
+Analyse syntaxique parfait
 ```
 
 ---
@@ -78,17 +78,17 @@ Analyse syntaxique perfecto
 
 ## Gestion des erreurs
 
-Le compilateur detecte et signale les erreurs suivantes :
+Le compilateur détecte et signale les erreurs suivantes :
 
-**Erreurs lexicales et syntaxiques** tout token ou construction non conforme a la grammaire STRUCIT-frontend est rejete avec le numero de ligne concerne.
+**Erreurs lexicales et syntaxiques** tout token ou construction non conforme à la grammaire STRUCIT-frontend est rejeté avec le numéro de ligne concerné.
 
-**Erreurs semantiques**  les cas suivants sont detectes et arretent la compilation :
-- Variable ou identifiant non declare
-- Appel de fonction avec un mauvais nombre d arguments
-- Fonction sans declaration `extern` prealable
+**Erreurs sémantiques**  les cas suivants sont détectés et arrêtent la compilation :
+- Variable ou identifiant non déclaré
+- Appel de fonction avec un mauvais nombre d'arguments
+- Fonction sans déclaration `extern` préalable
 
 Exemple de message d'erreur :
 
 ```
-Error: identifiant inconnu "x" (line y)
+Error: identifiant inconnu "x" (ligne y)
 ```
