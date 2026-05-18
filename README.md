@@ -72,6 +72,7 @@ Analyse syntaxique perfecto
 
 ./bin/structit tests/loops.c output/loops_backend.c
 ./bin/structit_backend < output/loops_backend.c
+```
 
 ---
 
@@ -87,5 +88,7 @@ Le compilateur detecte et signale les erreurs suivantes :
 - Fonction sans declaration `extern` prealable
 
 Exemple de message d'erreur :
+
 ```
 Error: identifiant inconnu "x" (line y)
+```
