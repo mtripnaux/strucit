@@ -668,6 +668,8 @@ int main(int argc, char **argv)
     sem_analyse(racine_ast);
     if (sem_errors > 0) {
         fprintf(stderr, "\033[1;31m compilation echouee: %d error(s)\033[0m\n", sem_errors);
+        sem_liberer();
+        ast_free(racine_ast);
         return 1;
     }
 
@@ -678,6 +680,11 @@ int main(int argc, char **argv)
     }
     write_code(racine_ast, out);
     if (out != stdout) fclose(out);
+
+    codegen_liberer();
+    sem_liberer();
+    ast_free(racine_ast);
+
     fprintf(stderr, "\033[0;34m compilation finie <3.. \033[0m\n");
     return 0;
 }

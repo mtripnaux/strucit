@@ -60,6 +60,17 @@ void extraire_arguments_fonction(Ast_node *noeud, Symbol *symbole) {
     }
 }
 
+void liberer_symbole(Symbol *s) {
+    if (!s) return;
+    for (int i = 0; i < s->child_count; i++)
+        liberer_symbole(s->children[i]);
+    free(s->children);
+    free(s->id);
+    free(s->type_name);
+    free(s->struct_name);
+    free(s);
+}
+
 void ajouter_symbole_retour(Ast_node *noeud, Symbol *symbole) {
     if (!noeud) return;
     if (noeud->type == AST_TYPE_SPECIFIER)

@@ -553,7 +553,8 @@ static char *ecrire_expression(Ast_node *nd, FILE *f) {
         Ast_node *rhs = nd->children[1];
 
         char *rval = ecrire_expression(rhs, f);
-        char *sn_rhs = g_expr_sname ? strdup(g_expr_sname) : NULL;
+        /* sn_rhs est un pointeur non-propriétaire vers la table de symboles */
+        const char *sn_rhs = g_expr_sname;
 
         if (lhs->type == AST_IDENTIFIER) {
             ecrire_indentation(f);
@@ -577,7 +578,7 @@ static char *ecrire_expression(Ast_node *nd, FILE *f) {
             liberer_temp(addr); free(addr);
             g_expr_sname = NULL;
             char *ret = strdup(rval);
-            free(rval); free(sn_rhs);
+            free(rval);
             return ret;
         }
 
@@ -594,12 +595,11 @@ static char *ecrire_expression(Ast_node *nd, FILE *f) {
             liberer_temp(ptr); free(ptr);
             g_expr_sname = NULL;
             char *ret = strdup(rval);
-            free(rval); free(sn_rhs);
+            free(rval);
             return ret;
         }
 
         g_expr_sname = NULL;
-        free(sn_rhs);
         return rval;
     }
 
@@ -758,12 +758,12 @@ static void ecrire_fonction(Ast_node *nd, FILE *f) {
     collecter_locales(body, g_local);
 
     // reset et init le corps dans buffer
-    g_temp_compteur = 0;
-    for (int i = 0; i < MAX_TEMPS; i++) {
-        g_temp_type [i] = NULL;
-        g_temp_sname[i] = NULL;
-        g_temp_used [i] = 0;
+    for (int i = 0; i < g_temp_compteur && i < MAX_TEMPS; i++) {
+        free(g_temp_type[i]);  g_temp_type[i]  = NULL;
+        free(g_temp_sname[i]); g_temp_sname[i] = NULL;
+        g_temp_used[i] = 0;
     }
+    g_temp_compteur = 0;
 
     char *body_buf = NULL;
     size_t body_size = 0;
@@ -806,6 +806,7 @@ static void ecrire_fonction(Ast_node *nd, FILE *f) {
     if (body_buf) { fputs(body_buf, f); free(body_buf); }
     fprintf(f, "}\n");
 
+    liberer_symbole(g_local);
     g_local = NULL;
 }
 
@@ -855,6 +856,16 @@ void write_code(Ast_node *prog, FILE *f) {
         default: break;
         }
     }
+}
+
+void codegen_liberer(void) {
+    liberer_symbole(g_global);
+    g_global = NULL;
+    for (int i = 0; i < g_temp_compteur && i < MAX_TEMPS; i++) {
+        free(g_temp_type[i]);  g_temp_type[i]  = NULL;
+        free(g_temp_sname[i]); g_temp_sname[i] = NULL;
+    }
+    g_temp_compteur = 0;
 }
 
 void print_error(Symbol *s, char *id, int line) {

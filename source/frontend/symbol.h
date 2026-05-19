@@ -46,4 +46,6 @@ void extraire_arguments_fonction(Ast_node *noeud, Symbol *symbole);
 
 void ajouter_symbole_retour(Ast_node *noeud, Symbol *symbole);
 
+void liberer_symbole(Symbol *s);
+
 #endif

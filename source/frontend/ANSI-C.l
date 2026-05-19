@@ -40,7 +40,7 @@ comment \/\*([^*]|\*+[^/*])*\*+\/
 "->"            { return PTR_OP; }
 
 {const}         { yylval.node = create_int_leaf(atoi(yytext)); yylval.node->line = yylineno; return CONSTANT; }
-{id}            { yylval.node = create_id_leaf(strdup(yytext)); yylval.node->line = yylineno; return IDENTIFIER; }
+{id}            { yylval.node = create_id_leaf(yytext); yylval.node->line = yylineno; return IDENTIFIER; }
 
 "+"             { return '+'; }
 "-"             { return '-'; }

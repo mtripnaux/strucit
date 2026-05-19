@@ -438,6 +438,7 @@ static void verifier_noeud(Ast_node *n)
 
         verifier_noeud(body_nd);
 
+        liberer_symbole(sem_local);
         sem_local = NULL;
         break;
     }
@@ -503,4 +504,10 @@ void sem_analyse(Ast_node *programme)
 {
     sem_init();
     verifier_noeud(programme);
+}
+
+void sem_liberer(void)
+{
+    liberer_symbole(sem_global);
+    sem_global = NULL;
 }

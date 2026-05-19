@@ -15,4 +15,7 @@ void sem_init(void);
 /* Analyse sémantique du programme entier */
 void sem_analyse(Ast_node *programme);
 
+/* Libère les tables de symboles sémantiques */
+void sem_liberer(void);
+
 #endif
