@@ -8,6 +8,6 @@ Modèle utilisé : Gemini Pro for Students
 - Comment utiliser open_memstream en C pour écrire dans buffer avant de flush dans un fichier ?
 - valgrind me dit "Invalid read of size 8" mais le programme crash pas, c'est grave ?
 - Comment je pourrai vérifier que mon fichier yacc ne génère aucun conflit shift-reduce avec bison?
-- Comment je peux transmettre mon projet de Windows vers ma machine virtuelle Fedora? Et comment je peux faire pour que les modifications effectuées sur ma machine locale(Windows) s'effectueront directement sur le meme projet depose sous Linux(Fedora)
+- Comment je peux transmettre mon projet de Windows vers ma machine virtuelle Fedora? Et comment je peux faire pour que les modifications effectuées sur ma machine locale(Windows) s'effectueront directement sur le meme projet deposé sous Linux(Fedora)
 - Mon compilateur génère 25 temporaires pour add.c, alors que c'était prévu avec SETHI-Ullman qu'il génère un nombre minimal de registres, pourquoi et comment je peux résoudre cela?
 - Dans mon analyseur sémantique, comment je peux distinguer un appel via un pointeur de fonction, d'un appel de fonction ordinaire au niveau de mon AST?
