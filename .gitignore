@@ -1,5 +1,4 @@
 .vscode/
-*.pdf
 *.o
 y.tab.c
 y.tab.h
@@ -10,3 +9,13 @@ output/*
 *.tab.*
 *.be.c
 énoncé/*
+*.log
+*.fdb_latexmk
+*.fls
+*.synctex.gz
+*.aux
+*.toc
+*.lof
+*.lot
+*.gz
+*.out
