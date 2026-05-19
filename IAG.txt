@@ -1,0 +1,9 @@
+Modèle utilisé : Gemini Pro for Students
+
+- Explique comment on exploite la sortie de Sethi-Ullman pour réutiliser des tmp
+- Pourquoi je segfault quand j'appelle yyparse() sans avoir initialisé yyin ?
+- En flex comment on matche un commentaire multi-lignes /**/ ?
+- Est-ce qu'il y a une solution pour les problems de shift/reduce de dangling else ?
+- Comment fonctionne %left/%right en bison
+- Comment utiliser open_memstream en C pour écrire dans buffer avant de flush dans un fichier ?
+- valgrind me dit "Invalid read of size 8" mais le programme crash pas, c'est grave ?
