@@ -367,19 +367,31 @@ static char *ecrire_expression(Ast_node *nd, FILE *f) {
 
     case AST_OP: {     // opération binaire (Sethi-Ullman: évalue la sous-expr la plus lourde en premier)
         if (nd->children_count < 2) { g_expr_sname = NULL; return strdup("0"); }
-        int sl = su_label(nd->children[0]);
-        int sr = su_label(nd->children[1]);
+        char *op = nd->id;
+        Ast_node *left  = nd->children[0];
+        Ast_node *right = nd->children[1];
+
+        // optimisation sur les neutres : x+0, 0+x, x-0
+        if (strcmp(op, "+") == 0 || strcmp(op, "-") == 0) {
+            if (right->type == AST_CONSTANT && right->value == 0)
+                return ecrire_expression(left, f);
+            if (strcmp(op, "+") == 0 && left->type == AST_CONSTANT && left->value == 0)
+                return ecrire_expression(right, f);
+        }
+
+        int sl = su_label(left);
+        int sr = su_label(right);
         char *l, *r;
         if (sr > sl) {
-            r = ecrire_expression(nd->children[1], f);
-            l = ecrire_expression(nd->children[0], f);
+            r = ecrire_expression(right, f);
+            l = ecrire_expression(left, f);
         } else {
-            l = ecrire_expression(nd->children[0], f);
-            r = ecrire_expression(nd->children[1], f);
+            l = ecrire_expression(left, f);
+            r = ecrire_expression(right, f);
         }
         char *t = creer_temp("int", NULL);
         ecrire_indentation(f);
-        fprintf(f, "%s = %s %s %s;\n", t, l, nd->id, r);
+        fprintf(f, "%s = %s %s %s;\n", t, l, op, r);
         liberer_temp(l); liberer_temp(r);
         free(l); free(r);
         g_expr_sname = NULL;
