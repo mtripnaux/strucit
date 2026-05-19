@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "structbe.tab.h"
+#include "strucitbe.tab.h"
 %}
 
 %%

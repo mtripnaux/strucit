@@ -1,46 +1,45 @@
 CC      = gcc
 LEX     = flex
 YACC    = bison
-CFLAGS  = -Wall -g -I./source/common -I./source/frontend -I./source/backend
+CFLAGS  = -Wall -g -I./source/frontend -I./source/backend
 LDFLAGS = -lfl
 
 BIN_DIR  = bin
 FE_DIR   = source/frontend
 BE_DIR   = source/backend
-COM_DIR  = source/common
 TEST_DIR = tests
 
 all: structit
 
-structit: directories $(FE_DIR)/structfe.tab.c $(FE_DIR)/lex.yy.c
+structit: directories $(FE_DIR)/strucitfe.tab.c $(FE_DIR)/lex.yy.c
 	$(CC) $(CFLAGS) \
-		$(FE_DIR)/structfe.tab.c \
+		$(FE_DIR)/strucitfe.tab.c \
 		$(FE_DIR)/lex.yy.c \
-		$(COM_DIR)/ast.c \
-		$(COM_DIR)/symbol.c \
-		$(COM_DIR)/codegen.c \
-		$(COM_DIR)/semantic.c \
+		$(FE_DIR)/ast.c \
+		$(FE_DIR)/symbol.c \
+		$(FE_DIR)/codegen.c \
+		$(FE_DIR)/semantic.c \
 		-o $(BIN_DIR)/structit $(LDFLAGS)
 
-$(FE_DIR)/structfe.tab.c $(FE_DIR)/structfe.tab.h: $(FE_DIR)/structfe.y
-	$(YACC) -d -o $(FE_DIR)/structfe.tab.c $<
+$(FE_DIR)/strucitfe.tab.c $(FE_DIR)/strucitfe.tab.h: $(FE_DIR)/strucitfe.y
+	$(YACC) -d -o $(FE_DIR)/strucitfe.tab.c $<
 
-$(FE_DIR)/lex.yy.c: $(FE_DIR)/ANSI-C.l $(FE_DIR)/structfe.tab.h
+$(FE_DIR)/lex.yy.c: $(FE_DIR)/ANSI-C.l $(FE_DIR)/strucitfe.tab.h
 	$(LEX) -o $@ $<
 
-backend: directories $(BE_DIR)/structbe.tab.c $(BE_DIR)/lex.be.c
+backend: directories $(BE_DIR)/strucitbe.tab.c $(BE_DIR)/lex.be.c
 	$(CC) $(CFLAGS) \
-		$(BE_DIR)/structbe.tab.c \
+		$(BE_DIR)/strucitbe.tab.c \
 		$(BE_DIR)/lex.be.c \
-		$(COM_DIR)/ast.c \
-		$(COM_DIR)/symbol.c \
-		$(COM_DIR)/codegen.c \
+		$(FE_DIR)/ast.c \
+		$(FE_DIR)/symbol.c \
+		$(FE_DIR)/codegen.c \
 		-o $(BIN_DIR)/structit_backend $(LDFLAGS)
 
-$(BE_DIR)/structbe.tab.c $(BE_DIR)/structbe.tab.h: $(BE_DIR)/structbe.y
-	$(YACC) -d -o $(BE_DIR)/structbe.tab.c $<
+$(BE_DIR)/strucitbe.tab.c $(BE_DIR)/strucitbe.tab.h: $(BE_DIR)/strucitbe.y
+	$(YACC) -d -o $(BE_DIR)/strucitbe.tab.c $<
 
-$(BE_DIR)/lex.be.c: $(BE_DIR)/ANSI-BE.l $(BE_DIR)/structbe.tab.h
+$(BE_DIR)/lex.be.c: $(BE_DIR)/strucitbe.l $(BE_DIR)/strucitbe.tab.h
 	$(LEX) -o $@ $<
 
 directories:

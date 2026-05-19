@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "ast.h"
-#include "structfe.tab.h"
+#include "strucitfe.tab.h"
 
 extern Ast_node *create_int_leaf(int val);
 extern Ast_node *create_id_leaf(char *name);
