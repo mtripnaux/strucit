@@ -20,6 +20,7 @@ structit: directories $(FE_DIR)/strucitfe.tab.c $(FE_DIR)/lex.yy.c
 		$(FE_DIR)/symtable.c \
 		$(FE_DIR)/codegen.c \
 		$(FE_DIR)/semantic.c \
+		$(FE_DIR)/erreurs.c \
 		-o $(BIN_DIR)/structit $(LDFLAGS)
 
 $(FE_DIR)/strucitfe.tab.c $(FE_DIR)/strucitfe.tab.h: $(FE_DIR)/strucitfe.y
@@ -32,6 +33,7 @@ backend: directories $(BE_DIR)/strucitbe.tab.c $(BE_DIR)/lex.be.c
 	$(CC) $(CFLAGS) \
 		$(BE_DIR)/strucitbe.tab.c \
 		$(BE_DIR)/lex.be.c \
+		$(FE_DIR)/erreurs.c \
 		-o $(BIN_DIR)/structit_backend $(LDFLAGS)
 
 $(BE_DIR)/strucitbe.tab.c $(BE_DIR)/strucitbe.tab.h: $(BE_DIR)/strucitbe.y

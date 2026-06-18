@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "strucitbe.tab.h"
+#include "erreurs.h"
 %}
 
 %%
@@ -54,6 +55,6 @@
 ":"       { return ':'; }
 ","       { return ','; }
 
-.               { fprintf(stderr, "Erreur lexicale : caractère '%s' inconnu à la ligne %d\n", yytext, yylineno); }
+.               { erreur_lexicale(yylineno, yytext); }
 
 %%

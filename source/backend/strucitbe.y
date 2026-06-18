@@ -2,13 +2,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "erreurs.h"
 
 extern int yylineno;
 extern FILE *yyin;
 int yylex();
 
 void yyerror(const char *s) {
-    fprintf(stderr, "Erreur syntaxique : %s à la ligne %d\n", s, yylineno);
+    erreur_syntaxique(yylineno, s);
     exit(1);
 }
 %}
@@ -194,9 +195,10 @@ function_definition
 int main(int argc, char **argv)
 {
     if (argc > 1) {
+        g_fichier_source = argv[1];
         yyin = fopen(argv[1], "r");
         if (!yyin) {
-            perror("Erreur d'ouverture du fichier source");
+            erreur_systeme("ouverture du fichier source");
             return 1;
         }
     }

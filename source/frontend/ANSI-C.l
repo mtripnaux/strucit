@@ -7,6 +7,7 @@
 #include <string.h>
 #include "ast.h"
 #include "strucitfe.tab.h"
+#include "erreurs.h"
 
 extern Ast_node *create_constant_leaf(int val);
 extern Ast_node *create_identifier_leaf(char *name);
@@ -70,6 +71,6 @@ comment \/\*([^*]|\*+[^/*])*\*+\/
 
 [ \t\v\n\r\f]   { /* espaces : ignores */ }
 
-.               { fprintf(stderr, "Erreur lexicale : '%s' ligne %d\n", yytext, yylineno); }
+.               { erreur_lexicale(yylineno, yytext); }
 
 %%
