@@ -10,21 +10,32 @@ static int g_label_compteur = 0;              // Compteur de labels
 static int g_indentation    = 0;              // Niveau d'indent
 static Symbol *g_local      = NULL;           // Table des symboles locales (empruntee a table_globale)
 
-#define MAX_TEMPS 512
-
-static char *g_temp_type [MAX_TEMPS];         // Types des variables temp
-static char *g_temp_sname[MAX_TEMPS];         // Nom de struct des temp
+// Types/struct-name des temporaires : tableaux dynamiques (realloc), pas de
+// plafond arbitraire. Une fonction avec une tres grosse expression (des
+// centaines d'operateurs) ne doit jamais produire de code reference a un
+// temporaire jamais declare.
+static char **g_temp_type     = NULL;
+static char **g_temp_sname    = NULL;
+static int    g_temp_capacite = 0;
 
 static const char *g_expr_sname = NULL;
 
-#define MAX_LABELS_ATTENTE 64
-static int g_pending_labels[MAX_LABELS_ATTENTE];
-static int g_pending_count = 0;
+// Labels en attente d'etre prefixes a la prochaine instruction reellement
+// ecrite (cf marquer_label). Tableau dynamique pour la meme raison : une
+// longue chaine de "else if" peut accumuler arbitrairement plus de labels
+// en attente que n'importe quelle constante fixe choisie a l'avance.
+static int *g_pending_labels   = NULL;
+static int  g_pending_count    = 0;
+static int  g_pending_capacite = 0;
 
 // Met un label en attente : il sera préfixé à la prochaine instruction
 // réellement écrite, au lieu d'occuper une ligne "Lx:;" à lui seul.
 static void marquer_label(int lbl) {
-    if (g_pending_count < MAX_LABELS_ATTENTE) g_pending_labels[g_pending_count++] = lbl;
+    if (g_pending_count == g_pending_capacite) {
+        g_pending_capacite = g_pending_capacite ? g_pending_capacite * 2 : 8;
+        g_pending_labels = realloc(g_pending_labels, sizeof(int) * g_pending_capacite);
+    }
+    g_pending_labels[g_pending_count++] = lbl;
 }
 
 void ecrire_indentation(FILE *f) {
@@ -44,10 +55,13 @@ static void purger_labels_en_attente(FILE *f) {
 // Crée un nouveau temporaire (un par sous-expression, jamais réutilisé)
 static char *creer_temp(const char *type, const char *sname) {
     int n = g_temp_compteur;
-    if (n < MAX_TEMPS) {
-        g_temp_type [n] = strdup(type);
-        g_temp_sname[n] = sname ? strdup(sname) : NULL;
+    if (n == g_temp_capacite) {
+        g_temp_capacite = g_temp_capacite ? g_temp_capacite * 2 : 32;
+        g_temp_type  = realloc(g_temp_type,  sizeof(char *) * g_temp_capacite);
+        g_temp_sname = realloc(g_temp_sname, sizeof(char *) * g_temp_capacite);
     }
+    g_temp_type [n] = strdup(type);
+    g_temp_sname[n] = sname ? strdup(sname) : NULL;
     g_temp_compteur++;
     char *buf = malloc(16);
     snprintf(buf, 16, "_temp_%d", n);
@@ -118,7 +132,7 @@ static const char *nom_struct_variable(const char *var) {
     if (!var) return NULL;
     if (strncmp(var, "_temp_", 6) == 0) {
         int idx = atoi(var + 6);
-        if (idx >= 0 && idx < g_temp_compteur && idx < MAX_TEMPS)
+        if (idx >= 0 && idx < g_temp_compteur)
             return g_temp_sname[idx];
     }
     Symbol *s = chercher_variable(var);
@@ -622,7 +636,7 @@ static void ecrire_fonction(Ast_node *nd, FILE *f) {
     g_local = fs ? fs->locales : NULL;
 
     // reset et init le corps dans buffer
-    for (int i = 0; i < g_temp_compteur && i < MAX_TEMPS; i++) {
+    for (int i = 0; i < g_temp_compteur; i++) {
         free(g_temp_type[i]);  g_temp_type[i]  = NULL;
         free(g_temp_sname[i]); g_temp_sname[i] = NULL;
     }
@@ -663,7 +677,7 @@ static void ecrire_fonction(Ast_node *nd, FILE *f) {
     }
 
     // Déclarer les variables temp
-    for (int i = 0; i < g_temp_compteur && i < MAX_TEMPS; i++) {
+    for (int i = 0; i < g_temp_compteur; i++) {
         const char *tt = g_temp_type[i] ? g_temp_type[i] : "int";
         fprintf(f, "\t%s _temp_%d;\n", tt, i);
     }
@@ -728,10 +742,17 @@ void write_code(Ast_node *prog, FILE *f) {
 
 void codegen_liberer(void) {
     // table_globale est liberee via symtable_liberer() (appele par sem_liberer()).
-    for (int i = 0; i < g_temp_compteur && i < MAX_TEMPS; i++) {
-        free(g_temp_type[i]);  g_temp_type[i]  = NULL;
-        free(g_temp_sname[i]); g_temp_sname[i] = NULL;
+    for (int i = 0; i < g_temp_compteur; i++) {
+        free(g_temp_type[i]);
+        free(g_temp_sname[i]);
     }
+    free(g_temp_type);  g_temp_type  = NULL;
+    free(g_temp_sname); g_temp_sname = NULL;
     g_temp_compteur = 0;
+    g_temp_capacite = 0;
+
+    free(g_pending_labels); g_pending_labels = NULL;
+    g_pending_count = 0;
+    g_pending_capacite = 0;
 }
 
