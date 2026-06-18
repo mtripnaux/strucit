@@ -73,4 +73,14 @@ Ast_node *ast_nom_declarateur(Ast_node *decl);
    large, utile quand on ne sait pas a priori ou il se trouve). */
 Ast_node *ast_premier_identifiant(Ast_node *n);
 
+/* Noeud AST_FUNC_DECLARATOR ou AST_DIRECT_DECLARATOR d'un declarateur (ex:
+   pour "int *(*f)(int n)", retrouve le noeud qui porte les parametres),
+   ou NULL si ce declarateur n'est pas celui d'une fonction. */
+Ast_node *ast_decl_fonction(Ast_node *decl);
+
+/* Liste de parametres (AST_PARAM_LIST) d'un declarateur de fonction, ou
+   NULL si la fonction n'a pas de parametres ou si ce n'est pas une
+   fonction. */
+Ast_node *ast_liste_parametres(Ast_node *decl);
+
 #endif

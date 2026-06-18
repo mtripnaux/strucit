@@ -155,25 +155,6 @@ static char *nom_declarateur(Ast_node *decl) {
     return id ? id->id : "?";
 }
 
-// Trouve la déclaration de func dans un déclarateur (recursive)
-// (on cherche AST_FUNC_DECLARATOR ou AST_DIRECT_DECLARATOR)
-static Ast_node *trouver_decl_fonction(Ast_node *decl) {
-    if (!decl) return NULL;
-    if (decl->type == AST_FUNC_DECLARATOR ||
-        decl->type == AST_DIRECT_DECLARATOR) return decl;
-    if (decl->children_count > 0)
-        return trouver_decl_fonction(decl->children[0]);
-    return NULL;
-}
-
-// Donne les paramètres à partir d'une déclaration de func
-static Ast_node *obtenir_liste_params(Ast_node *decl) {
-    Ast_node *fd = trouver_decl_fonction(decl);
-    if (fd && fd->type == AST_FUNC_DECLARATOR && fd->children_count >= 2)
-        return fd->children[1];
-    return NULL;
-}
-
 // Écris proprement les paramètres de func dans le fichier
 static void ecrire_parametres(Ast_node *plist, FILE *f) {
     if (!plist) { fprintf(f, "void"); return; }
@@ -631,7 +612,7 @@ static void ecrire_fonction(Ast_node *nd, FILE *f) {
 
     // La table des locales (parametres + declarations) a deja ete construite
     // et verifiee par l'analyse semantique : on la reutilise telle quelle.
-    Ast_node *plist = obtenir_liste_params(decl);
+    Ast_node *plist = ast_liste_parametres(decl);
     Symbol *fs = chercher_symbole_enfant(table_globale, nom_declarateur(decl));
     g_local = fs ? fs->locales : NULL;
 
@@ -695,9 +676,9 @@ static void ecrire_extern(Ast_node *nd, FILE *f) {
     if (nd->children_count < 2) return;
     Ast_node *ts   = nd->children[0];
     Ast_node *decl = nd->children[1];
-    Ast_node *plist = obtenir_liste_params(decl);
+    Ast_node *plist = ast_liste_parametres(decl);
     const char *rt  = chaine_type(ts, decl);
-    if (plist || trouver_decl_fonction(decl)) {
+    if (plist || ast_decl_fonction(decl)) {
         fprintf(f, "extern %s %s(", rt, nom_declarateur(decl));
         ecrire_parametres(plist, f);
         fprintf(f, ");\n");

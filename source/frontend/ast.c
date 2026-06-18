@@ -67,3 +67,17 @@ Ast_node *ast_premier_identifiant(Ast_node *n) {
     }
     return NULL;
 }
+
+Ast_node *ast_decl_fonction(Ast_node *decl) {
+    if (!decl) return NULL;
+    if (decl->type == AST_FUNC_DECLARATOR || decl->type == AST_DIRECT_DECLARATOR) return decl;
+    if (decl->children_count > 0) return ast_decl_fonction(decl->children[0]);
+    return NULL;
+}
+
+Ast_node *ast_liste_parametres(Ast_node *decl) {
+    Ast_node *fd = ast_decl_fonction(decl);
+    if (fd && fd->type == AST_FUNC_DECLARATOR && fd->children_count >= 2)
+        return fd->children[1];
+    return NULL;
+}

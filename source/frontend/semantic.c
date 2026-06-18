@@ -121,65 +121,26 @@ static void enregistrer_fonction(Ast_node *type_nd, Ast_node *decl_nd, Symbol **
     }
     if (ast_est_pointeur(decl_nd)) fs->pointer = true;
 
-    /* Cherche la liste de parametres recursivement dans tout le sous-arbre */
-    Ast_node *plist = NULL;
-    {
-        /* BFS pour trouver AST_PARAM_LIST n importe ou dans decl_nd */
-        Ast_node *queue[64];
-        int head = 0, tail = 0;
-        queue[tail++] = decl_nd;
-        while (head < tail && !plist) {
-            Ast_node *cur = queue[head++];
-            for (int ci = 0; ci < cur->children_count && tail < 63; ci++) {
-                if (cur->children[ci]->type == AST_PARAM_LIST) {
-                    plist = cur->children[ci];
-                    break;
-                }
-                queue[tail++] = cur->children[ci];
-            }
-        }
-    }
+    Ast_node *plist = ast_liste_parametres(decl_nd);
 
+    // Chaque element de plist vient de la regle "parameter_declaration :
+    // declaration_specifiers declarator" : c'est toujours un AST_PARAM a
+    // exactement 2 enfants (type, declarateur), quelle que soit la
+    // complexite du declarateur (ast_nom_declarateur/ast_est_pointeur
+    // savent deja suivre un declarateur de pointeur de fonction).
     if (plist) {
         for (int i = 0; i < plist->children_count; i++) {
             Ast_node *param = plist->children[i];
-            if (param->type == AST_PARAM && param->children_count >= 2) {
-                Ast_node *ptype = param->children[0];
-                Ast_node *pdecl = param->children[1];
-                Ast_node *pid   = ast_nom_declarateur(pdecl);
-                if (!pid) continue;
-                verifier_struct_par_pointeur(ptype, pdecl);
-                Symbol *ps = creer_symbole(pid->id, 4, IDENTIFIER_SYMBOL);
-                ps->type_name = strdup(nom_type(ptype));
-                ps->pointer = ast_est_pointeur(pdecl);
-                ajouter_symbole_enfant(fs, ps);
-            } else {
-                /* Parametre de type complexe (ex: pointeur de fonction struct liste *(*f)(...))
-                   On collecte TOUS les identifiants et on enregistre le dernier
-                   qui n est pas un mot-cle de type connu */
-                Ast_node *stack[64];
-                int top = 0;
-                stack[top++] = param;
-                char *last_id = NULL;
-                while (top > 0) {
-                    Ast_node *cur = stack[--top];
-                    if (cur->type == AST_IDENTIFIER && cur->id) {
-                        if (strcmp(cur->id, "int")    != 0 &&
-                            strcmp(cur->id, "void")   != 0 &&
-                            strcmp(cur->id, "struct")  != 0 &&
-                            strcmp(cur->id, nom)      != 0)
-                            last_id = cur->id;
-                    }
-                    for (int c = 0; c < cur->children_count && top < 63; c++)
-                        stack[top++] = cur->children[c];
-                }
-                if (last_id) {
-                    Symbol *ps = creer_symbole(last_id, 4, IDENTIFIER_SYMBOL);
-                    ps->type_name = strdup("void *");
-                    ps->pointer = true;
-                    ajouter_symbole_enfant(fs, ps);
-                }
-            }
+            if (param->children_count < 2) continue;
+            Ast_node *ptype = param->children[0];
+            Ast_node *pdecl = param->children[1];
+            Ast_node *pid   = ast_nom_declarateur(pdecl);
+            if (!pid) continue;
+            verifier_struct_par_pointeur(ptype, pdecl);
+            Symbol *ps = creer_symbole(pid->id, 4, IDENTIFIER_SYMBOL);
+            ps->type_name = strdup(nom_type(ptype));
+            ps->pointer = ast_est_pointeur(pdecl);
+            ajouter_symbole_enfant(fs, ps);
         }
     }
 
