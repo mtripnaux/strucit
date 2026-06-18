@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
- 
+
 extern int yylineno;
 extern FILE *yyin;
 int yylex();
@@ -42,6 +42,8 @@ postfix_expression
     | postfix_expression '(' argument_expression_list ')'
     ;
 
+// Les arguments d'un appel doivent etre des primary_expression,
+// jamais une expression composée comme "a+b".
 argument_expression_list
     : primary_expression
     | argument_expression_list ',' primary_expression
@@ -84,6 +86,7 @@ equality_expression
     | primary_expression NE_OP primary_expression
     ;
 
+// Les seules affectations autorisees : additive_expression
 expression
     : equality_expression
     | unary_operator primary_expression '=' primary_expression
@@ -102,7 +105,7 @@ declaration_specifiers
 type_specifier
     : VOID
     | INT
-    ;
+    ; // Pas de STRUCT
 
 declarator
     : '*' direct_declarator
@@ -159,6 +162,9 @@ expression_statement
     | expression ';'
     ;
 
+// Seule structure de controle du backend : le saut conditionnel. La
+// condition est une equality_expression (donc peut etre une comparaison,
+// mais jamais un && / || : ou/et logiques entre conditions interdits
 selection_statement
     : IF '(' equality_expression ')' GOTO IDENTIFIER ';'
     ;
