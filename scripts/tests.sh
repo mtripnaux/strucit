@@ -19,6 +19,11 @@ TESTS_OK=(
     "add.c" "sub.c" "mul.c" "div.c" "neg.c"
     "variables.c" "loops.c" "cond.c"
     "functions.c" "listes.c" "compteur.c" "ptr.c"
+    "edge_precedence.c" "edge_boolexpr.c" "edge_dangling_else.c"
+    "edge_recursion.c" "edge_structs_chain.c" "edge_funcptr.c"
+    "edge_sizeof.c" "edge_globals.c" "edge_nested_loops.c"
+    "edge_many_temps.c" "edge_void_return.c" "edge_type_ops_valides.c"
+    "gap_break_keyword.c" "gap_undeclared_var.c"
 )
 
 TESTS_FAIL=(
@@ -27,6 +32,16 @@ TESTS_FAIL=(
     "err_increment.c"
     "err_args.c"
     "err_undeclared.c"
+    "err_ternary.c"
+    "err_array.c"
+    "err_double_pointer.c"
+    "err_sizeof_struct.c"
+    "err_sizeof_type.c"
+    "err_struct_par_valeur.c"
+    "err_struct_champ_par_valeur.c"
+    "err_struct_param_par_valeur.c"
+    "err_struct_retour_par_valeur.c"
+    "err_type_ops.c"
 )
 
 FAILED=0

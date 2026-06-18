@@ -5,20 +5,17 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include "semantic.h"
+#include "symtable.h"
 
-/*Tables des symboles globale / locale */
+/* Table des symboles locale a la fonction en cours d'analyse */
+static Symbol *sem_local = NULL;
+int sem_errors = 0;
 
-Symbol *sem_global = NULL;
-Symbol *sem_local  = NULL;
-int     sem_errors = 0;
-
-void sem_init(void)
+static void sem_init(void)
 {
-    sem_global = creer_symbole("__global__", 0, FUNCTION_SYMBOL);
+    symtable_creer();
     sem_errors = 0;
 }
-
-
 
 static const char *nom_type(Ast_node *n)
 {
@@ -29,45 +26,12 @@ static const char *nom_type(Ast_node *n)
     return "?";
 }
 
-/* Trouve le premier IDENTIFIER dans un sous-arbre */
-static Ast_node *premier_id(Ast_node *n)
-{
-    if (!n) return NULL;
-    if (n->type == AST_IDENTIFIER) return n;
-    for (int i = 0; i < n->children_count; i++) {
-        Ast_node *r = premier_id(n->children[i]);
-        if (r) return r;
-    }
-    return NULL;
-}
-
-/* Trouve le nom du declarateur (ex: dans int (*f)(int n), retourne f)
-   En cherchant l IDENTIFIER dans AST_FUNC_DECLARATOR ou AST_STAR_DECLARATOR */
-static Ast_node *nom_declarateur_id(Ast_node *n)
-{
-    if (!n) return NULL;
-    /* Si c est directement un identifiant -> c est le nom */
-    if (n->type == AST_IDENTIFIER) return n;
-    /* Si c est un declarateur de fonction -> le nom est dans le premier enfant */
-    if (n->type == AST_FUNC_DECLARATOR && n->children_count > 0)
-        return nom_declarateur_id(n->children[0]);
-    /* Si c est un declarateur pointeur -> cherche dans les enfants */
-    if (n->type == AST_STAR_DECLARATOR && n->children_count > 0)
-        return nom_declarateur_id(n->children[0]);
-    /* Pour les autres types, cherche recursivement */
-    for (int i = 0; i < n->children_count; i++) {
-        Ast_node *r = nom_declarateur_id(n->children[i]);
-        if (r) return r;
-    }
-    return NULL;
-}
-
 /* ── Erreurs*/
 
 static void erreur(int ligne, const char *fmt, ...)
 {
-    va_list ap; 
-    fprintf(stderr, "\033[1;31mErreur:\033[0m ");
+    va_list ap;
+    fprintf(stderr, "Erreur: ");
     va_start(ap, fmt);
     vfprintf(stderr, fmt, ap);
     va_end(ap);
@@ -78,11 +42,26 @@ static void erreur(int ligne, const char *fmt, ...)
 static void avertissement(int ligne, const char *fmt, ...)
 {
     va_list ap;
-    fprintf(stderr, "\033[1;35mWarning:\033[0m ");
+    fprintf(stderr, "Warning: ");
     va_start(ap, fmt);
     vfprintf(stderr, fmt, ap);
     va_end(ap);
     fprintf(stderr, " (line %d)\n", ligne);
+}
+
+/* Une structure n'est pas manipulee par pointeur : erreur (cf enonce 3.1,
+   "les structures ne peuvent etre manipulees que par le biais de pointeurs,
+   [...] cette contrainte [...] est imposee par la semantique du langage") */
+static void verifier_struct_par_pointeur(Ast_node *type_nd, Ast_node *decl_nd)
+{
+    if (!type_nd || !decl_nd) return;
+    if (type_nd->type != AST_STRUCT && type_nd->type != AST_STRUCT_DEFINITION) return;
+    if (ast_est_pointeur(decl_nd)) return;
+
+    Ast_node *id_nd = ast_premier_identifiant(decl_nd);
+    erreur(id_nd ? id_nd->line : 0,
+           "Une structure ne peut etre manipulee que par pointeur (\"%s\")",
+           id_nd ? id_nd->id : "?");
 }
 
 /* Enregistrement des symboles*/
@@ -94,12 +73,14 @@ static void enregistrer_declaration(Ast_node *decl)
 
     Ast_node *type_nd = decl->children[0];
     Ast_node *decl_nd = decl->children[1];
-    Ast_node *id_nd   = premier_id(decl_nd);
+    Ast_node *id_nd   = ast_premier_identifiant(decl_nd);
 
     if (!id_nd) return;
 
+    verifier_struct_par_pointeur(type_nd, decl_nd);
+
     char *nom = id_nd->id;
-    Symbol *table = sem_local ? sem_local : sem_global;
+    Symbol *table = sem_local ? sem_local : table_globale;
 
     /* Redefinition */
     if (chercher_symbole_enfant(table, nom)) {
@@ -114,11 +95,11 @@ static void enregistrer_declaration(Ast_node *decl)
     s->type_name = strdup(nom_type(type_nd));
 
     if (type_nd->type == AST_STRUCT || type_nd->type == AST_STRUCT_DEFINITION) {
-        Ast_node *nom_struct = premier_id(type_nd);
+        Ast_node *nom_struct = ast_premier_identifiant(type_nd);
         if (nom_struct) s->struct_name = strdup(nom_struct->id);
     }
 
-    if (decl_nd->type == AST_STAR_DECLARATOR) s->pointer = true;
+    if (ast_est_pointeur(decl_nd)) s->pointer = true;
 
     ajouter_symbole_enfant(table, s);
 }
@@ -126,17 +107,19 @@ static void enregistrer_declaration(Ast_node *decl)
 /* Enregistre une definition de fonction */
 static void enregistrer_fonction(Ast_node *type_nd, Ast_node *decl_nd, Symbol **fs_out)
 {
-    Ast_node *nom_nd = premier_id(decl_nd);
+    Ast_node *nom_nd = ast_premier_identifiant(decl_nd);
     if (!nom_nd) return;
+
+    verifier_struct_par_pointeur(type_nd, decl_nd);
 
     char *nom = nom_nd->id;
     Symbol *fs = creer_symbole(nom, 0, FUNCTION_SYMBOL);
     fs->type_name = strdup(nom_type(type_nd));
     if (type_nd->type == AST_STRUCT || type_nd->type == AST_STRUCT_DEFINITION) {
-        Ast_node *ns = premier_id(type_nd);
+        Ast_node *ns = ast_premier_identifiant(type_nd);
         if (ns) fs->struct_name = strdup(ns->id);
     }
-    if (decl_nd->type == AST_STAR_DECLARATOR) fs->pointer = true;
+    if (ast_est_pointeur(decl_nd)) fs->pointer = true;
 
     /* Cherche la liste de parametres recursivement dans tout le sous-arbre */
     Ast_node *plist = NULL;
@@ -163,11 +146,12 @@ static void enregistrer_fonction(Ast_node *type_nd, Ast_node *decl_nd, Symbol **
             if (param->type == AST_PARAM && param->children_count >= 2) {
                 Ast_node *ptype = param->children[0];
                 Ast_node *pdecl = param->children[1];
-                Ast_node *pid   = nom_declarateur_id(pdecl);
+                Ast_node *pid   = ast_nom_declarateur(pdecl);
                 if (!pid) continue;
+                verifier_struct_par_pointeur(ptype, pdecl);
                 Symbol *ps = creer_symbole(pid->id, 4, IDENTIFIER_SYMBOL);
                 ps->type_name = strdup(nom_type(ptype));
-                ps->pointer = true; /* les params complexes sont souvent des ptrs */
+                ps->pointer = ast_est_pointeur(pdecl);
                 ajouter_symbole_enfant(fs, ps);
             } else {
                 /* Parametre de type complexe (ex: pointeur de fonction struct liste *(*f)(...))
@@ -206,7 +190,7 @@ static void enregistrer_fonction(Ast_node *type_nd, Ast_node *decl_nd, Symbol **
     ret->pointer = fs->pointer;
     ajouter_symbole_enfant(fs, ret);
 
-    ajouter_symbole_enfant(sem_global, fs);
+    ajouter_symbole_enfant(table_globale, fs);
     if (fs_out) *fs_out = fs;
 }
 
@@ -222,13 +206,16 @@ static void enregistrer_struct(Ast_node *def)
 {
     if (!def) return;
 
-    Ast_node *nom_nd = premier_id(def);
+    Ast_node *nom_nd = ast_premier_identifiant(def);
     if (!nom_nd) return;
 
     Symbol *ss = creer_symbole(nom_nd->id, 0, STRUCT_SYMBOL);
     ss->type_name = strdup("struct");
 
-    /* Champs */
+    /* Champs : chaque champ occupe 4 octets, a la suite des precedents
+       (necessaire pour l'arithmetique de pointeur generee par le backend,
+       ex: p->suivant -> p + offset) */
+    int off = 0;
     for (int i = 0; i < def->children_count; i++) {
         Ast_node *child = def->children[i];
         if (child->type == AST_STRUCT_FIELD_LIST) {
@@ -237,23 +224,131 @@ static void enregistrer_struct(Ast_node *def)
                 if (field->type == AST_STRUCT_FIELD && field->children_count >= 2) {
                     Ast_node *ftype = field->children[0];
                     Ast_node *fdecl = field->children[1];
-                    Ast_node *fid   = premier_id(fdecl);
+                    Ast_node *fid   = ast_premier_identifiant(fdecl);
                     if (!fid) continue;
+                    verifier_struct_par_pointeur(ftype, fdecl);
                     Symbol *fs = creer_symbole(fid->id, 4, IDENTIFIER_SYMBOL);
                     fs->type_name = strdup(nom_type(ftype));
-                    if (fdecl->type == AST_STAR_DECLARATOR) fs->pointer = true;
+                    if (ast_est_pointeur(fdecl)) fs->pointer = true;
+                    if (ftype->type == AST_STRUCT) {
+                        fs->pointer = true;
+                        Ast_node *sn = ast_premier_identifiant(ftype);
+                        if (sn) fs->struct_name = strdup(sn->id);
+                    }
+                    fs->offset = off;
+                    off += 4;
                     ajouter_symbole_enfant(ss, fs);
                 }
             }
         }
     }
+    ss->size = off;
 
-    ajouter_symbole_enfant(sem_global, ss);
+    ajouter_symbole_enfant(table_globale, ss);
 }
 
 /*Verification des expressions */
 
 static void verifier_expression(Ast_node *n, int ligne);
+
+/* Type minimal d'une expression, juste assez pour les regles de l'enonce :
+   "Toutes les operations binaires sont autorisees sur des int. Seules les
+   operations binaires suivantes sont autorisees sur des pointeurs [...]
+   Pour les operations unaires, * et ->champ ne peuvent s'appliquer qu'a
+   une variable de type pointeur, & ne peut s'appliquer qu'a une variable
+   de type int ou a une fonction, - ne peut s'appliquer qu'a une variable
+   de type int." Quand le type ne peut pas etre determine simplement (appel
+   de fonction, champ de structure, ...), on renvoie "inconnu" et on ne
+   signale rien : on reste minimal et on evite les faux positifs. */
+typedef enum { T_INCONNU = -1, T_INT = 0, T_POINTEUR = 1, T_FONCTION = 2 } Type_expr;
+
+static Type_expr type_expr(Ast_node *n)
+{
+    if (!n) return T_INCONNU;
+
+    switch (n->type) {
+    case AST_CONSTANT:
+        return T_INT;
+
+    case AST_IDENTIFIER: {
+        Symbol *s = sem_local ? chercher_symbole_enfant(sem_local, n->id) : NULL;
+        if (!s) s = table_globale ? chercher_symbole_enfant(table_globale, n->id) : NULL;
+        if (!s) return T_INCONNU;
+        if (s->type == FUNCTION_SYMBOL) return T_FONCTION;
+        return s->pointer ? T_POINTEUR : T_INT;
+    }
+
+    case AST_UNARY:
+        if (n->children_count < 2 || !n->children[0]->id) return T_INCONNU;
+        if (strcmp(n->children[0]->id, "&") == 0) return T_POINTEUR;
+        if (strcmp(n->children[0]->id, "-") == 0) return T_INT;
+        if (strcmp(n->children[0]->id, "*") == 0)
+            return type_expr(n->children[1]) == T_POINTEUR ? T_INT : T_INCONNU;
+        return T_INCONNU;
+
+    default:
+        return T_INCONNU;
+    }
+}
+
+/* Si ligne == 0 (cas habituel des appels depuis verifier_noeud), on essaie
+   de retrouver une ligne utile via le premier identifiant du sous-arbre. */
+static int ligne_effective(Ast_node *n, int ligne)
+{
+    if (ligne > 0) return ligne;
+    Ast_node *id_nd = ast_premier_identifiant(n);
+    return (id_nd && id_nd->line > 0) ? id_nd->line : ligne;
+}
+
+/* * et ->champ ne s'appliquent qu'a un pointeur ; & qu'a un int ou une
+   fonction ; - qu'a un int. */
+static void verifier_type_unaire(Ast_node *n, int ligne)
+{
+    if (n->children_count < 2 || !n->children[0]->id) return;
+    char *op = n->children[0]->id;
+    Type_expr t = type_expr(n->children[1]);
+    if (t == T_INCONNU) return;
+    ligne = ligne_effective(n->children[1], ligne);
+
+    if (strcmp(op, "-") == 0 && t != T_INT)
+        erreur(ligne, "L'operateur unaire '-' ne peut s'appliquer qu'a une variable de type int");
+    else if (strcmp(op, "*") == 0 && t != T_POINTEUR)
+        erreur(ligne, "L'operateur unaire '*' ne peut s'appliquer qu'a une variable de type pointeur");
+    else if (strcmp(op, "&") == 0 && t == T_POINTEUR)
+        erreur(ligne, "L'operateur '&' ne peut s'appliquer qu'a une variable de type int ou a une fonction");
+}
+
+static void verifier_type_fleche(Ast_node *n, int ligne)
+{
+    if (n->children_count < 1) return;
+    Type_expr t = type_expr(n->children[0]);
+    if (t != T_INCONNU && t != T_POINTEUR)
+        erreur(ligne_effective(n->children[0], ligne), "L'operateur '->' ne peut s'appliquer qu'a une variable de type pointeur");
+}
+
+/* + - * / : seules addition/soustraction d'un entier a un pointeur, et
+   soustraction entre deux pointeurs, sont autorisees sur des pointeurs. */
+static void verifier_type_binaire(Ast_node *n, int ligne)
+{
+    if (n->children_count < 2) return;
+    Type_expr tl = type_expr(n->children[0]);
+    Type_expr tr = type_expr(n->children[1]);
+    if (tl == T_INCONNU || tr == T_INCONNU) return;
+
+    int l_ptr = (tl == T_POINTEUR), r_ptr = (tr == T_POINTEUR);
+    if (!l_ptr && !r_ptr) return;  /* int op int : toujours autorise */
+    ligne = ligne_effective(n, ligne);
+
+    if (strcmp(n->id, "+") == 0) {
+        if (l_ptr && r_ptr)
+            erreur(ligne, "Addition interdite entre deux pointeurs");
+    } else if (strcmp(n->id, "-") == 0) {
+        if (!l_ptr && r_ptr)
+            erreur(ligne, "Soustraction d'un pointeur a un entier interdite");
+    } else {
+        erreur(ligne, "Les operateurs '*' et '/' ne sont pas autorises sur des pointeurs");
+    }
+}
 
 static void verifier_appel(Ast_node *postfix, int ligne)
 {
@@ -269,14 +364,14 @@ static void verifier_appel(Ast_node *postfix, int ligne)
         return;
     }
 
-    Ast_node *fn_nd = premier_id(postfix->children[0]);
+    Ast_node *fn_nd = ast_premier_identifiant(postfix->children[0]);
     if (!fn_nd) return;
     char *nom = fn_nd->id;
     /* Utilise la ligne de l identifiant si disponible */
     if (fn_nd->line > 0) line = fn_nd->line;
 
     /* Cherche dans la table globale */
-    Symbol *fs = sem_global ? chercher_symbole_enfant(sem_global, (char *)nom) : NULL;
+    Symbol *fs = table_globale ? chercher_symbole_enfant(table_globale, (char *)nom) : NULL;
     if (fs) {
         /* Fonction connue : verifie le nombre d arguments */
         int nb_args = 0;
@@ -328,14 +423,21 @@ static void verifier_expression(Ast_node *n, int ligne)
     }
     case AST_POSTFIX_POINTER:
         /* x->champ : on verifie seulement x (pas le nom du champ) */
+        verifier_type_fleche(n, ligne);
         if (n->children_count >= 1)
             verifier_expression(n->children[0], ligne);
         break;
     case AST_UNARY:
+        verifier_type_unaire(n, ligne);
         if (n->children_count >= 2)
             verifier_expression(n->children[1], ligne);
         else if (n->children_count == 1)
             verifier_expression(n->children[0], ligne);
+        break;
+    case AST_OP:
+        verifier_type_binaire(n, ligne);
+        for (int i = 0; i < n->children_count; i++)
+            verifier_expression(n->children[i], ligne);
         break;
     case AST_POSTFIX:
         if (n->children_count >= 1) {
@@ -435,10 +537,12 @@ static void verifier_noeud(Ast_node *n)
             }
         }
 
-
         verifier_noeud(body_nd);
 
-        liberer_symbole(sem_local);
+        /* La table locale (parametres + declarations) est transferee a la
+           fonction : le generateur de code la reutilise telle quelle au
+           lieu de la reconstruire depuis l'AST. */
+        fs->locales = sem_local;
         sem_local = NULL;
         break;
     }
@@ -461,9 +565,9 @@ static void verifier_noeud(Ast_node *n)
     case AST_RETURN: {
         /* Trouve la fonction courante */
         Symbol *fn = NULL;
-        if (sem_global)
-            fn = sem_global->child_count > 0 ?
-                 sem_global->children[sem_global->child_count - 1] : NULL;
+        if (table_globale)
+            fn = table_globale->child_count > 0 ?
+                 table_globale->children[table_globale->child_count - 1] : NULL;
         verifier_return(n, fn);
         break;
     }
@@ -508,6 +612,5 @@ void sem_analyse(Ast_node *programme)
 
 void sem_liberer(void)
 {
-    liberer_symbole(sem_global);
-    sem_global = NULL;
+    symtable_liberer();
 }

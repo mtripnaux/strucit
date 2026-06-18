@@ -42,21 +42,15 @@ typedef enum {
 } Ast_type;
 
 typedef struct _Ast_node {
-    Ast_type type;                
-    char *id;                     
-    int value;                   
-    int size;                     
-    int line;                     /* numéro de ligne dans le source */
-    struct _Ast_node *parent;     
-    struct _Ast_node **children;  
-    int children_count;           
+    Ast_type type;
+    char *id;
+    int value;
+    int line;
+    struct _Ast_node **children;
+    int children_count;
 } Ast_node;
 
-
-
 Ast_node *ast_create_node(Ast_type type);
-
-Ast_node *create_node(Ast_type type, Ast_node *enfant1, Ast_node *enfant2);
 
 Ast_node *create_int_leaf(int valeur);
 
@@ -65,5 +59,18 @@ Ast_node *create_id_leaf(char *nom);
 void ast_add_child(Ast_node *parent, Ast_node *enfant);
 
 void ast_free(Ast_node *noeud);
+
+/* Le declarateur a-t-il une etoile en tete (ex: struct liste *p) ? Ne suit
+   que la chaine principale (children[0]) : pour un declarateur de fonction,
+   children[1] est la liste de parametres et ne doit jamais etre inspectee. */
+int ast_est_pointeur(Ast_node *decl);
+
+/* Identifiant porte par un declarateur (ex: dans int (*f)(int n), retourne
+   f). Ne suit que la chaine principale, jamais une liste de parametres. */
+Ast_node *ast_nom_declarateur(Ast_node *decl);
+
+/* Premier identifiant trouve n'importe ou dans le sous-arbre (recherche
+   large, utile quand on ne sait pas a priori ou il se trouve). */
+Ast_node *ast_premier_identifiant(Ast_node *n);
 
 #endif

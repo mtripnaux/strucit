@@ -13,7 +13,7 @@ int yylex();
 static Ast_node *racine_ast = NULL;
 
 void yyerror(const char *s) {
-    fprintf(stderr, "\033[0;31mErreur syntaxique : %s ligne %d\033[0m\n", s, yylineno);
+    fprintf(stderr, "Erreur syntaxique : %s ligne %d\n", s, yylineno);
     exit(1);
 }
 %}
@@ -41,15 +41,6 @@ void yyerror(const char *s) {
 %type <node> logical_and_expression logical_or_expression
 %type <node> expression
 %type <node> argument_expression_list
-
-%right '='
-%left OR_OP
-%left AND_OP
-%left EQ_OP NE_OP
-%left '<' '>' LE_OP GE_OP
-%left '+' '-'
-%left '*' '/'
-%right UMINUS
 
 %start program
 
@@ -119,13 +110,11 @@ type_specifier
     {
         $$ = ast_create_node(AST_TYPE_SPECIFIER);
         $$->id = strdup("void");
-        $$->size = 0;
     }
     | INT
     {
         $$ = ast_create_node(AST_TYPE_SPECIFIER);
         $$->id = strdup("int");
-        $$->size = 4;
     }
     | struct_specifier
     {
@@ -469,16 +458,6 @@ unary_expression
         $$ = ast_create_node(AST_UNARY_SIZEOF);
         ast_add_child($$, $2);
     }
-    | SIZEOF '(' INT ')'
-    {
-        $$ = ast_create_node(AST_UNARY_SIZEOF);
-        ast_add_child($$, create_id_leaf("int"));
-    }
-    | SIZEOF '(' VOID ')'
-    {
-        $$ = ast_create_node(AST_UNARY_SIZEOF);
-        ast_add_child($$, create_id_leaf("void"));
-    }
     ;
 
 // &, *, -
@@ -664,10 +643,9 @@ int main(int argc, char **argv)
     fclose(yyin);
 
     /* Analyse sémantique */
-    fprintf(stderr, "\033[0;34m compilation commencee <3 ...\033[0m\n");
     sem_analyse(racine_ast);
     if (sem_errors > 0) {
-        fprintf(stderr, "\033[1;31m compilation echouee: %d error(s)\033[0m\n", sem_errors);
+        fprintf(stderr, "compilation echouee: %d error(s)\n", sem_errors);
         sem_liberer();
         ast_free(racine_ast);
         return 1;
@@ -685,6 +663,5 @@ int main(int argc, char **argv)
     sem_liberer();
     ast_free(racine_ast);
 
-    fprintf(stderr, "\033[0;34m compilation finie <3.. \033[0m\n");
     return 0;
 }

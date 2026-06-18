@@ -5,9 +5,7 @@ static Ast_node *alloc_node(Ast_type type) {
     n->type = type;
     n->id = NULL;
     n->value = 0;
-    n->size = 0;
     n->line = 0;
-    n->parent = NULL;
     n->children = NULL;
     n->children_count = 0;
     return n;
@@ -15,13 +13,6 @@ static Ast_node *alloc_node(Ast_type type) {
 
 Ast_node *ast_create_node(Ast_type type) {
     return alloc_node(type);
-}
-
-Ast_node *create_node(Ast_type type, Ast_node *c1, Ast_node *c2) {
-    Ast_node *n = alloc_node(type);
-    if (c1) ast_add_child(n, c1);
-    if (c2) ast_add_child(n, c2);
-    return n;
 }
 
 Ast_node *create_int_leaf(int value) {
@@ -42,7 +33,6 @@ void ast_add_child(Ast_node *parent, Ast_node *child) {
     parent->children = realloc(parent->children,
                                sizeof(Ast_node *) * parent->children_count);
     parent->children[parent->children_count - 1] = child;
-    child->parent = parent;
 }
 
 void ast_free(Ast_node *node) {
@@ -52,4 +42,28 @@ void ast_free(Ast_node *node) {
     free(node->children);
     free(node->id);
     free(node);
+}
+
+int ast_est_pointeur(Ast_node *decl) {
+    if (!decl) return 0;
+    if (decl->type == AST_STAR_DECLARATOR) return 1;
+    if (decl->children_count > 0) return ast_est_pointeur(decl->children[0]);
+    return 0;
+}
+
+Ast_node *ast_nom_declarateur(Ast_node *decl) {
+    if (!decl) return NULL;
+    if (decl->type == AST_IDENTIFIER) return decl;
+    if (decl->children_count > 0) return ast_nom_declarateur(decl->children[0]);
+    return NULL;
+}
+
+Ast_node *ast_premier_identifiant(Ast_node *n) {
+    if (!n) return NULL;
+    if (n->type == AST_IDENTIFIER) return n;
+    for (int i = 0; i < n->children_count; i++) {
+        Ast_node *r = ast_premier_identifiant(n->children[i]);
+        if (r) return r;
+    }
+    return NULL;
 }

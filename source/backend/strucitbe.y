@@ -8,7 +8,7 @@ extern FILE *yyin;
 int yylex();
 
 void yyerror(const char *s) {
-    fprintf(stderr, "\033[1;31mErreur syntaxique : %s à la ligne %d\033[0m\n", s, yylineno);
+    fprintf(stderr, "Erreur syntaxique : %s à la ligne %d\n", s, yylineno);
     exit(1);
 }
 %}
@@ -196,7 +196,7 @@ int main(int argc, char **argv)
     }
 
     if (yyparse() == 0) {
-        printf("\033[0;35mAnalyse syntaxique perfecto\033[0m\n");
+        printf("Analyse syntaxique correcte\n");
     }
 
     if (argc > 1) fclose(yyin);

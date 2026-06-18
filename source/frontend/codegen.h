@@ -8,13 +8,6 @@
 #include "ast.h"
 #include "symbol.h"
 
-//afficher erreur de declaration
-void print_error(Symbol *symbole, char *id, int ligne);
-//afficher avertissement 
-void print_warning(Symbol *symbole, char *id, int ligne);
-//texte en couleur dans le terminal 
-void print_color(char *couleur, char *texte);
-
 //gerer tabukation
 void ecrire_indentation(FILE *fichier);
 //inversement des operateurs logiques 

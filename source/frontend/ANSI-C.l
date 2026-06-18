@@ -52,8 +52,6 @@ comment \/\*([^*]|\*+[^/*])*\*+\/
 ">"             { return '>'; }
 "("             { return '('; }
 ")"             { return ')'; }
-"["             { return '['; }
-"]"             { return ']'; }
 "{"             { return '{'; }
 "}"             { return '}'; }
 ";"             { return ';'; }

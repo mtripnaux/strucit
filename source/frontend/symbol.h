@@ -6,8 +6,6 @@
 #include <string.h>
 #include <stdbool.h>
 
-#include "ast.h"
-
 typedef enum _Symbol_type
 {
     FUNCTION_SYMBOL,
@@ -33,6 +31,11 @@ typedef struct _Symbol
 
     // Gestion d'erreurs
     bool pointer;
+
+    // Pour un FUNCTION_SYMBOL : table des variables locales (parametres +
+    // declarations) construite par l'analyse semantique, reutilisee telle
+    // quelle par le generateur de code.
+    struct _Symbol *locales;
 } Symbol;
 
 
@@ -41,10 +44,6 @@ Symbol *creer_symbole(char *id, int taille, Symbol_type type);
 void ajouter_symbole_enfant(Symbol *parent, Symbol *enfant);
 
 Symbol *chercher_symbole_enfant(Symbol *parent, char *cle);
-
-void extraire_arguments_fonction(Ast_node *noeud, Symbol *symbole);
-
-void ajouter_symbole_retour(Ast_node *noeud, Symbol *symbole);
 
 void liberer_symbole(Symbol *s);
 
