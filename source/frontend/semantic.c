@@ -477,10 +477,45 @@ static void verifier_expression(Ast_node *n, int ligne)
                 verifier_expression(n->children[0], ligne);
         }
         break;
-    case AST_ASSIGNMENT:
+    case AST_ASSIGNMENT: {
         verifier_expression(n->children[0], ligne);
         verifier_expression(n->children[1], ligne);
+        if (n->children_count < 2) break;
+        Ast_node *lhs = n->children[0];
+        Ast_node *rhs = n->children[1];
+        /* Interdit d'allouer une structure via une fonction qui renvoie
+           manifestement autre chose qu'un pointeur (enonce 3.1 : "ne peuvent
+           etre allouees que par une fonction de type malloc"). On signale
+           uniquement quand le RHS est un appel de fonction CONNUE dans la
+           table globale, qui n'est pas malloc, et dont le type de retour
+           n'est pas un pointeur (retour int ou void => elle ne peut pas
+           retourner l'adresse d'une structure allouee). Les pointeurs de
+           fonction passes en parametre et les fonctions retournant void*
+           sont tolerees pour eviter les faux positifs. */
+        if (lhs->type == AST_IDENTIFIER && rhs->type == AST_POSTFIX &&
+            rhs->children_count >= 1 && rhs->children[0]->type == AST_IDENTIFIER)
+        {
+            Symbol *vs = sem_local ? chercher_symbole_enfant(sem_local, lhs->id) : NULL;
+            if (!vs) vs = table_globale ? chercher_symbole_enfant(table_globale, lhs->id) : NULL;
+            if (vs && vs->pointer && vs->struct_name) {
+                char *fname = rhs->children[0]->id;
+                if (fname && strcmp(fname, "malloc") != 0) {
+                    Symbol *fs = table_globale ?
+                        chercher_symbole_enfant(table_globale, fname) : NULL;
+                    /* Erreur seulement si la fonction est connue et ne retourne
+                       pas un pointeur (int ou void => pas une allocation) */
+                    if (fs && !fs->pointer && fs->type_name &&
+                        (strcmp(fs->type_name, "int") == 0 ||
+                         strcmp(fs->type_name, "void") == 0))
+                        erreur(lhs->line > 0 ? lhs->line : ligne,
+                               "La structure \"%s\" doit etre allouee via malloc"
+                               " (la fonction \"%s\" ne retourne pas un pointeur)",
+                               vs->struct_name, fname);
+                }
+            }
+        }
         break;
+    }
     default:
         // Comparaisons (AST_BOOL_OP), && / || (AST_BOOL_LOGIC), et tout
         // ce qui n'a pas de cas dedie : pas de regle de typage specifique

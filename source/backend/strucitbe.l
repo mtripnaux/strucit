@@ -55,6 +55,6 @@
 ":"       { return ':'; }
 ","       { return ','; }
 
-.               { erreur_lexicale(yylineno, yytext); }
+.               { /* caractere hors langage : neglige, jamais renvoye au parseur (cf enonce 3.3) */ }
 
 %%
