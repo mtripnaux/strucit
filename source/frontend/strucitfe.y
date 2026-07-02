@@ -716,7 +716,7 @@ argument_expression_list
 int main(int argc, char **argv)
 {
     if (argc < 2) {
-        fprintf(stderr, "Usage: %s <source.c> [sortie.c]\n", argv[0]);
+        fprintf(stderr, "Usage : %s <source.c> [sortie.c]\n", argv[0]);
         return 1;
     }
     g_fichier_source = argv[1];

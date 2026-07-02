@@ -112,7 +112,7 @@ static void enregistrer_declaration(Ast_node *decl) {
 
     /* Redefinition */
     if (chercher_symbole_enfant(table, nom)) {
-        avertissement(0, "Overriding identifier \"%s\"", nom);
+        avertissement(0, "Redéfinition de l'identifiant \"%s\"", nom);
     }
 
     int taille = 4;
@@ -405,7 +405,7 @@ static void verifier_appel(Ast_node *postfix, int ligne)
                 nb_params++;
         }
         if (nb_params > 0 && nb_args != nb_params && fs->type == FUNCTION_SYMBOL)
-            erreur(line, "Function \"%s\" requires %d arguments but %d were given",
+            erreur(line, "La fonction \"%s\" attend %d argument(s) mais %d ont été fournis",
                    nom, nb_params, nb_args);
         if (postfix->children_count >= 2)
             verifier_expression(postfix->children[1], line);
@@ -423,7 +423,7 @@ static void verifier_appel(Ast_node *postfix, int ligne)
     }
 
     /* Aucun des trois cas : identifiant vraiment inconnu. */
-    erreur(line, "Identifiant inconnuuuu \"%s\"", nom);
+    erreur(line, "Fonction ou variable \"%s\" non déclarée", nom);
 }
 
 /* Verifie une expression : descend recursivement dedans en appliquant a
@@ -547,9 +547,9 @@ static void verifier_return(Ast_node *n, Symbol *fn)
     bool a_valeur      = (n->children_count > 0);
 
     if (attend_valeur && !a_valeur)
-        erreur(0, "Function \"%s\" must return a value", fn->id);
+        erreur(0, "La fonction \"%s\" doit retourner une valeur", fn->id);
     else if (!attend_valeur && a_valeur)
-        erreur(0, "Function \"%s\" must not return a value", fn->id);
+        erreur(0, "La fonction \"%s\" ne doit pas retourner de valeur", fn->id);
 
     if (a_valeur)
         verifier_expression(n->children[0], 0);

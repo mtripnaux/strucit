@@ -26,8 +26,6 @@ Les blocs, délimités par des accolades en C, ne font pas partie du langage STR
 
 Les labels, de la forme `NomDuLabel:`, étaient systématiquement complétés par des points-virgules à cause de ????. La solution est simple, attacher la prochaine instruction au label si elle existe et mettre un point-virgule sinon. Ce changement est mineur et ne sera pas conservé, car l'assembleur [NOM_ASM] de permet pas l'écriture de plusieurs instructions sur une ligne et n'inclut donc pas de caractère séparateur d'instructions comme le point-virgule en C.
 
-### Erreur syntaxique if(a > b)
-
 ### Validation sémantique
 
 L'énoncé impose que les structures ne puissent être *allouées* que par une fonction de type `malloc`. Cette contrainte n'était pas vérifiée. Une analyse statique complète serait interprocédurale (impossible sans analyse de flux), mais une vérification utile et sans faux positif est réalisable : si une variable de type pointeur-sur-structure reçoit le résultat d'un appel à une fonction connue dans la table des symboles dont le type de retour est `int` ou `void` (donc pas un pointeur), alors cette fonction ne peut pas avoir alloué la structure et l'affectation est fausse. Les fonctions qui retournent un pointeur (`void *`, comme `malloc`) et les pointeurs de fonction passés en paramètre sont tolérés. Cette vérification est implémentée dans `verifier_expression` au cas `AST_ASSIGNMENT` de `semantic.c`.

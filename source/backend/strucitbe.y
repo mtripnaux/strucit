@@ -198,7 +198,7 @@ int main(int argc, char **argv)
         g_fichier_source = argv[1];
         yyin = fopen(argv[1], "r");
         if (!yyin) {
-            erreur_systeme("ouverture du fichier source");
+            erreur_systeme("Ouverture du fichier source");
             return 1;
         }
     }
